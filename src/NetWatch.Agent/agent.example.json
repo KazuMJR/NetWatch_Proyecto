@@ -1,0 +1,8 @@
+{
+  "apiUrl": "http://192.168.56.1:8081/api/metrics/agent",
+  "apiKey": "REPLACE_WITH_THE_SAME_AGENT_KEY_USED_BY_THE_API",
+  "deviceId": 1,
+  "intervalSeconds": 60,
+  "verifyTls": true
+}
+

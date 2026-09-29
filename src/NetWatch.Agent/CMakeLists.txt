@@ -1,0 +1,21 @@
+cmake_minimum_required(VERSION 3.20)
+project(NetWatchAgent VERSION 1.0.0 LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+add_executable(netwatch-agent src/main.cpp src/Config.cpp src/SystemMetrics.cpp)
+target_include_directories(netwatch-agent PRIVATE include)
+if(WIN32)
+  target_link_libraries(netwatch-agent PRIVATE iphlpapi winhttp)
+  target_compile_definitions(netwatch-agent PRIVATE WIN32_LEAN_AND_MEAN NOMINMAX)
+  target_compile_options(netwatch-agent PRIVATE /EHsc)
+  if(MSVC)
+    # Produce a self-contained Windows binary so clean VMs do not need the
+    # separately installed Microsoft Visual C++ Redistributable.
+    set_property(TARGET netwatch-agent PROPERTY
+      MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+  endif()
+else()
+  find_package(CURL REQUIRED)
+  target_link_libraries(netwatch-agent PRIVATE CURL::libcurl)
+endif()
+install(TARGETS netwatch-agent RUNTIME DESTINATION bin)

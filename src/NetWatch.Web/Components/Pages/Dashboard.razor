@@ -1,0 +1,64 @@
+@page "/"
+@attribute [Authorize]
+@implements IAsyncDisposable
+@inject NetWatchApiClient Api
+
+<PageTitle>Panel principal | NetWatch</PageTitle>
+<div class="page-heading"><div><h1>Panel principal</h1><p>Estado actual del laboratorio virtual · actualización automática cada 15 s</p></div><button class="btn btn-outline-primary" @onclick="Load">Actualizar</button></div>
+@if (error is not null) { <div class="alert alert-danger">@error</div> }
+else if (data is null) { <p>Cargando indicadores...</p> }
+else {
+ <div class="metric-grid">
+  <div class="metric-card"><span>Total</span><strong>@data.Total</strong></div><div class="metric-card success"><span>Activos</span><strong>@data.Active</strong></div>
+  <div class="metric-card warning"><span>Advertencia</span><strong>@data.Warning</strong></div><div class="metric-card danger"><span>Desconectados</span><strong>@data.Disconnected</strong></div>
+  <div class="metric-card muted"><span>Inactivos</span><strong>@data.Inactive</strong></div>
+ </div>
+ <section class="panel mt-4"><h2>Dispositivos monitoreados</h2>@if(devices.Count==0){<p class="empty">No hay dispositivos activos registrados.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>IP</th><th>Tipo</th><th>Estado</th><th>Último ping UTC</th></tr></thead><tbody>@foreach(var device in devices){<tr><td><a href="devices/@device.Id">@device.Name</a></td><td><code>@device.IpAddress</code></td><td>@DisplayLabels.DeviceType(device.DeviceType)</td><td><span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></td><td>@(device.LastPingAtUtc?.ToString("g")??"Sin datos")</td></tr>}</tbody></table></div>}</section>
+ <div class="row g-4 mt-1"><div class="col-xl-6"><section class="panel"><h2>Alertas pendientes recientes</h2>@if(data.RecentAlerts.Count==0){<p class="empty">Sin alertas pendientes.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>Alerta</th><th>Nivel</th><th>Fecha UTC</th></tr></thead><tbody>@foreach(var a in data.RecentAlerts){<tr><td><a href="devices/@a.DeviceId">@a.DeviceName</a></td><td>@DisplayLabels.Text(a.Title)</td><td><span class="status @a.Level.ToLowerInvariant()">@DisplayLabels.Severity(a.Level)</span></td><td>@a.GeneratedAtUtc.ToString("g")</td></tr>}</tbody></table></div>}</section></div>
+ <div class="col-xl-6"><section class="panel"><h2>Métricas recientes</h2>@if(data.RecentMetrics.Count==0){<p class="empty">Aún no hay métricas.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>CPU</th><th>RAM</th><th>Disco</th></tr></thead><tbody>@foreach(var m in data.RecentMetrics){<tr><td>@m.DeviceName</td><td>@m.CpuPercent%</td><td>@m.MemoryPercent%</td><td>@m.DiskPercent%</td></tr>}</tbody></table></div>}</section></div></div>
+ <section class="panel mt-4"><h2>Eventos recientes</h2>@if(events.Count==0){<p class="empty">Aún no hay eventos.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Tipo</th><th>Severidad</th><th>Descripción</th></tr></thead><tbody>@foreach(var item in events){<tr><td>@item.OccurredAtUtc.ToString("g")</td><td>@item.DeviceName</td><td>@DisplayLabels.EventType(item.EventType)</td><td>@DisplayLabels.Severity(item.Severity)</td><td>@DisplayLabels.Text(item.Description)</td></tr>}</tbody></table></div>}</section>
+}
+@code {
+    private readonly CancellationTokenSource refreshCancellation = new();
+    private DashboardDto? data;
+    private IReadOnlyList<DeviceDto> devices = [];
+    private IReadOnlyList<EventDto> events = [];
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await Load();
+        _ = RefreshLoopAsync(refreshCancellation.Token);
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            error = null;
+            var dashboardTask = Api.GetAsync<DashboardDto>("api/dashboard");
+            var devicesTask = Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");
+            var eventsTask = Api.GetAsync<IReadOnlyList<EventDto>>("api/events?limit=10");
+            await Task.WhenAll(dashboardTask, devicesTask, eventsTask);
+            data = await dashboardTask;
+            devices = await devicesTask;
+            events = await eventsTask;
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task RefreshLoopAsync(CancellationToken cancellationToken)
+    {
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken)) await InvokeAsync(Load);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        refreshCancellation.Cancel(); refreshCancellation.Dispose(); return ValueTask.CompletedTask;
+    }
+}

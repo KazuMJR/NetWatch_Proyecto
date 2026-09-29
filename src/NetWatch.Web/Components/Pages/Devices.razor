@@ -1,0 +1,12 @@
+@page "/devices"
+@attribute [Authorize]
+@inject NetWatchApiClient Api
+
+<PageTitle>Dispositivos | NetWatch</PageTitle>
+<div class="page-heading"><div><h1>Dispositivos</h1><p>Inventario y disponibilidad de la infraestructura</p></div><AuthorizeView Roles="Administrator"><a class="btn btn-primary" href="devices/new">Registrar dispositivo</a></AuthorizeView></div>
+@if(error is not null){<div class="alert alert-danger">@error</div>} else if(devices is null){<p>Cargando...</p>} else {
+ <section class="panel"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Nombre</th><th>Tipo</th><th>IP</th><th>Estado</th><th>Último ping UTC</th><th>Monitoreo</th><th></th></tr></thead><tbody>
+ @foreach(var d in devices){<tr><td><a href="devices/@d.Id"><strong>@d.Name</strong></a><div class="small text-muted">@d.Location</div></td><td>@DisplayLabels.DeviceType(d.DeviceType)</td><td><code>@d.IpAddress</code></td><td><span class="status @d.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(d.Status)</span></td><td>@(d.LastPingAtUtc?.ToString("g")??"Sin datos")</td><td>@(d.MonitoringEnabled?"Habilitado":"Deshabilitado")</td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="devices/@d.Id">Ver</a> <AuthorizeView Roles="Administrator"><a class="btn btn-sm btn-outline-primary" href="devices/@d.Id/edit">Editar</a><button class="btn btn-sm btn-outline-danger ms-1" @onclick="()=>Deactivate(d)">Desactivar</button></AuthorizeView></td></tr>}
+ </tbody></table></div></section>
+}
+@code { private IReadOnlyList<DeviceDto>? devices; private string? error; protected override Task OnInitializedAsync()=>Load(); private async Task Load(){try{devices=await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");}catch(Exception ex){error=ex.Message;}} private async Task Deactivate(DeviceDto d){if(!await JS.InvokeAsync<bool>("confirm",$"¿Desactivar {d.Name}?") )return;try{await Api.DeleteAsync($"api/devices/{d.Id}");await Load();}catch(Exception ex){error=ex.Message;}} [Inject] private IJSRuntime JS {get;set;}=null!; }

@@ -1,0 +1,97 @@
+name: netwatch
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    mem_limit: 768m
+    cpus: 1.0
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    volumes:
+      - netwatch_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u$${MYSQL_USER} -p$${MYSQL_PASSWORD} --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    networks:
+      - netwatch
+
+  api:
+    build:
+      context: .
+      dockerfile: src/NetWatch.API/Dockerfile
+    restart: unless-stopped
+    mem_limit: 512m
+    cpus: 0.75
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ConnectionStrings__NetWatch: Server=mysql;Port=3306;Database=${MYSQL_DATABASE};User=${MYSQL_USER};Password=${MYSQL_PASSWORD};
+      Jwt__Issuer: NetWatch.API
+      Jwt__Audience: NetWatch.Clients
+      Jwt__Key: ${JWT_KEY}
+      Security__AgentApiKey: ${AGENT_API_KEY}
+      Seed__AdminUsername: ${ADMIN_USERNAME}
+      Seed__AdminPassword: ${ADMIN_PASSWORD}
+      Seed__AdminEmail: ${ADMIN_EMAIL}
+      Seed__TechnicianUsername: ${TECHNICIAN_USERNAME}
+      Seed__TechnicianPassword: ${TECHNICIAN_PASSWORD}
+      Seed__TechnicianEmail: ${TECHNICIAN_EMAIL}
+      Database__AutoMigrate: "true"
+      Monitoring__PingIntervalSeconds: "30"
+      Monitoring__FailuresBeforeDisconnected: "3"
+    cap_add:
+      - NET_RAW
+    ports:
+      - "${NETWATCH_BIND_ADDRESS:-0.0.0.0}:${API_PORT:-8081}:8080"
+    networks:
+      - netwatch
+
+  web:
+    build:
+      context: .
+      dockerfile: src/NetWatch.Web/Dockerfile
+    restart: unless-stopped
+    mem_limit: 384m
+    cpus: 0.50
+    depends_on:
+      - api
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+      ApiBaseUrl: http://api:8080/
+    ports:
+      - "${NETWATCH_BIND_ADDRESS:-0.0.0.0}:${WEB_PORT:-8080}:8080"
+    networks:
+      - netwatch
+
+  adminer:
+    image: adminer:6.1.0-standalone
+    restart: unless-stopped
+    mem_limit: 96m
+    cpus: 0.25
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      ADMINER_DEFAULT_SERVER: mysql
+    ports:
+      - "127.0.0.1:${ADMINER_PORT:-8082}:8080"
+    networks:
+      - netwatch
+
+volumes:
+  netwatch_mysql:
+
+networks:
+  netwatch:
+    driver: bridge

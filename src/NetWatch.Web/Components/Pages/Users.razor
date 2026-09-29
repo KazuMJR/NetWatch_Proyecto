@@ -1,0 +1,142 @@
+@page "/users"
+@attribute [Authorize(Roles="Administrator")]
+@inject NetWatchApiClient Api
+
+<PageTitle>Usuarios | NetWatch</PageTitle>
+
+<div class="page-heading">
+    <div><h1>Usuarios</h1><p>Administradores y técnicos autorizados</p></div>
+    <button class="btn btn-primary" @onclick="ShowCreate">Nuevo usuario</button>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger">@error</div>
+}
+@if (message is not null)
+{
+    <div class="alert alert-success">@message</div>
+}
+
+@if (showCreate)
+{
+    <section class="panel mb-4">
+        <h2>Crear usuario</h2>
+        <EditForm Model="createForm" OnValidSubmit="Create">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <div class="row g-3">
+                <div class="col-md-3"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="createForm.FirstName" /></div>
+                <div class="col-md-3"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="createForm.LastName" /></div>
+                <div class="col-md-3"><label class="form-label">Correo</label><InputText class="form-control" @bind-Value="createForm.Email" /></div>
+                <div class="col-md-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="createForm.Username" /></div>
+                <div class="col-md-4"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="createForm.Password" /></div>
+                <div class="col-md-4"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="createForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div>
+            </div>
+            <button class="btn btn-primary mt-3" disabled="@busy">Guardar</button>
+            <button type="button" class="btn btn-outline-secondary mt-3 ms-2" @onclick="CancelForms">Cancelar</button>
+        </EditForm>
+    </section>
+}
+
+@if (editingUser is not null)
+{
+    <section class="panel mb-4">
+        <h2>Editar @editingUser.Username</h2>
+        <EditForm Model="editForm" OnValidSubmit="SaveEdit">
+            <DataAnnotationsValidator /><ValidationSummary />
+            <div class="row g-3">
+                <div class="col-md-3"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="editForm.FirstName" /></div>
+                <div class="col-md-3"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="editForm.LastName" /></div>
+                <div class="col-md-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="editForm.Username" /></div>
+                <div class="col-md-3"><label class="form-label">Correo</label><InputText class="form-control" @bind-Value="editForm.Email" /></div>
+                <div class="col-md-3"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="editForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div>
+                <div class="col-md-4"><label class="form-label">Nueva contraseña (opcional)</label><InputText type="password" class="form-control" @bind-Value="editForm.NewPassword" /></div>
+                <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><InputCheckbox class="form-check-input" @bind-Value="editForm.IsActive" /><label class="form-check-label">Usuario activo</label></div></div>
+            </div>
+            <button class="btn btn-primary mt-3" disabled="@busy">Guardar cambios</button>
+            <button type="button" class="btn btn-outline-secondary mt-3 ms-2" @onclick="CancelForms">Cancelar</button>
+        </EditForm>
+    </section>
+}
+
+<section class="panel">
+    <div class="table-responsive">
+        <table class="table">
+            <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+            @foreach (var user in users)
+            {
+                <tr>
+                    <td>@user.Username</td><td>@user.FirstName @user.LastName</td><td>@user.Email</td>
+                    <td>@RoleLabel(user.Role)</td><td>@(user.IsActive ? "Activo" : "Inactivo")</td>
+                    <td class="text-end">
+                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(user)">Editar</button>
+                        <button class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success") ms-1" @onclick="() => Toggle(user)">@(user.IsActive ? "Desactivar" : "Activar")</button>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+</section>
+
+@code {
+    private IReadOnlyList<UserDto> users = [];
+    private UserForm createForm = new();
+    private UserEditForm editForm = new();
+    private UserDto? editingUser;
+    private bool showCreate;
+    private bool busy;
+    private string? error;
+    private string? message;
+
+    protected override Task OnInitializedAsync() => Load();
+
+    private async Task Load()
+    {
+        try { error = null; users = await Api.GetAsync<IReadOnlyList<UserDto>>("api/users"); }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private void ShowCreate()
+    {
+        editingUser = null; createForm = new(); showCreate = true; error = null; message = null;
+    }
+
+    private void Edit(UserDto user)
+    {
+        showCreate = false; editingUser = user; error = null; message = null;
+        editForm = new UserEditForm { FirstName = user.FirstName, LastName = user.LastName, Username = user.Username, Email = user.Email, Role = user.Role, IsActive = user.IsActive };
+    }
+
+    private void CancelForms() { showCreate = false; editingUser = null; }
+
+    private async Task Create()
+    {
+        busy = true;
+        try { await Api.PostAsync<UserDto>("api/users", createForm); CancelForms(); await Load(); message = "Usuario creado correctamente."; }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task SaveEdit()
+    {
+        if (editingUser is null) return;
+        busy = true;
+        try { await Api.PutAsync<UserDto>($"api/users/{editingUser.Id}", editForm); CancelForms(); await Load(); message = "Usuario actualizado. Si cambió su propio nombre de usuario, utilice el nuevo nombre en el próximo inicio de sesión."; }
+        catch (Exception ex) { error = ex.Message; }
+        finally { busy = false; }
+    }
+
+    private async Task Toggle(UserDto user)
+    {
+        try
+        {
+            var body = new { user.FirstName, user.LastName, user.Username, user.Email, user.Role, IsActive = !user.IsActive, NewPassword = (string?)null };
+            await Api.PutAsync<UserDto>($"api/users/{user.Id}", body); await Load();
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private static string RoleLabel(string role) => role == "Administrator" ? "Administrador" : "Técnico";
+}

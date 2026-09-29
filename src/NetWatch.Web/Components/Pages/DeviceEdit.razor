@@ -4,21 +4,55 @@
 @inject NetWatchApiClient Api
 @inject NavigationManager Navigation
 
-<PageTitle>@(Id.HasValue?"Editar":"Registrar") dispositivo | NetWatch</PageTitle>
-<div class="page-heading"><div><h1>@(Id.HasValue?"Editar dispositivo":"Registrar dispositivo")</h1><p>Configuración de identidad, red y monitoreo</p></div><a class="btn btn-outline-secondary" href="devices">Volver</a></div>
-@if(error is not null){<div class="alert alert-danger">@error</div>}
-<section class="panel"><EditForm Model="model" OnValidSubmit="Save"><DataAnnotationsValidator /><ValidationSummary />
- <div class="row g-3"><div class="col-md-6"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="model.Name" /></div>
- <div class="col-md-6"><label class="form-label">Tipo</label><InputSelect class="form-select" @bind-Value="model.DeviceTypeId"><option value="0">Seleccione</option>@foreach(var t in types){<option value="@t.Id">@DisplayLabels.DeviceType(t.Name)</option>}</InputSelect></div>
- <div class="col-md-4"><label class="form-label">Dirección IP</label><InputText class="form-control" @bind-Value="model.IpAddress" /></div><div class="col-md-4"><label class="form-label">Máscara o prefijo CIDR</label><InputText class="form-control" @bind-Value="model.SubnetMask" /></div><div class="col-md-4"><label class="form-label">Puerta de enlace</label><InputText class="form-control" @bind-Value="model.Gateway" /></div>
- <div class="col-md-4"><label class="form-label">DNS primario</label><InputText class="form-control" @bind-Value="model.PrimaryDns" /></div><div class="col-md-4"><label class="form-label">DNS secundario</label><InputText class="form-control" @bind-Value="model.SecondaryDns" /></div><div class="col-md-4"><label class="form-label">MAC</label><InputText class="form-control" @bind-Value="model.MacAddress" /></div>
- <div class="col-md-4"><label class="form-label">Fabricante</label><InputText class="form-control" @bind-Value="model.Manufacturer" /></div><div class="col-md-4"><label class="form-label">Modelo</label><InputText class="form-control" @bind-Value="model.Model" /></div><div class="col-md-4"><label class="form-label">Sistema operativo</label><InputText class="form-control" @bind-Value="model.OperatingSystem" /></div>
- <div class="col-md-6"><label class="form-label">Ubicación</label><InputText class="form-control" @bind-Value="model.Location" /></div><div class="col-md-6"><label class="form-label">Descripción</label><InputText class="form-control" @bind-Value="model.Description" /></div>
- <div class="col-12"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="model.MonitoringEnabled" /><label class="form-check-label">Habilitar monitoreo ICMP cada 30 segundos</label></div></div></div>
- <button class="btn btn-primary mt-4" disabled="@busy">@(busy?"Guardando...":"Guardar")</button>
-</EditForm></section>
+<PageTitle>@(Id.HasValue ? "Editar" : "Registrar") dispositivo | NetWatch</PageTitle>
+
+<div class="page-heading">
+    <div><span class="page-eyebrow">Administración de inventario</span><h1>@(Id.HasValue ? "Editar dispositivo" : "Registrar dispositivo")</h1><p>Complete la identidad, conectividad y características técnicas del equipo.</p></div>
+    <div class="page-actions"><a class="btn btn-outline-secondary" href="devices"><AppIcon Name="back" Size="17" /> Volver al inventario</a></div>
+</div>
+
+@if (error is not null) { <div class="alert alert-danger"><strong>No fue posible guardar.</strong> @error</div> }
+
+<section class="panel">
+    <EditForm Model="model" OnValidSubmit="Save">
+        <DataAnnotationsValidator /><ValidationSummary />
+        <div class="form-section">
+            <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="devices" Size="17" /></span><div><h2>Identidad del dispositivo</h2><p>Información con la que aparecerá en el inventario.</p></div></div>
+            <div class="row g-3"><div class="col-md-6"><label class="form-label">Nombre del dispositivo</label><InputText class="form-control" @bind-Value="model.Name" /><div class="form-hint">Use un nombre reconocible y único.</div></div><div class="col-md-3"><label class="form-label">Tipo</label><InputSelect class="form-select" @bind-Value="model.DeviceTypeId"><option value="0">Seleccione un tipo</option>@foreach (var type in types){<option value="@type.Id">@DisplayLabels.DeviceType(type.Name)</option>}</InputSelect></div><div class="col-md-3"><label class="form-label">Ubicación</label><InputText class="form-control" @bind-Value="model.Location" placeholder="Ej. Laboratorio A" /></div><div class="col-12"><label class="form-label">Descripción</label><InputText class="form-control" @bind-Value="model.Description" placeholder="Función o notas relevantes del equipo" /></div></div>
+        </div>
+        <div class="form-section">
+            <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="network" Size="17" /></span><div><h2>Configuración de red</h2><p>Direcciones usadas para conectividad y diagnóstico.</p></div></div>
+            <div class="row g-3"><div class="col-md-4"><label class="form-label">Dirección IP</label><InputText class="form-control" @bind-Value="model.IpAddress" placeholder="192.168.56.20" /></div><div class="col-md-4"><label class="form-label">Máscara o prefijo CIDR</label><InputText class="form-control" @bind-Value="model.SubnetMask" /></div><div class="col-md-4"><label class="form-label">Puerta de enlace</label><InputText class="form-control" @bind-Value="model.Gateway" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">DNS primario</label><InputText class="form-control" @bind-Value="model.PrimaryDns" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">DNS secundario</label><InputText class="form-control" @bind-Value="model.SecondaryDns" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">Dirección MAC</label><InputText class="form-control" @bind-Value="model.MacAddress" placeholder="00:00:00:00:00:00" /></div></div>
+        </div>
+        <div class="form-section">
+            <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="settings" Size="17" /></span><div><h2>Plataforma y monitoreo</h2><p>Datos técnicos y comportamiento del sistema.</p></div></div>
+            <div class="row g-3"><div class="col-md-4"><label class="form-label">Fabricante</label><InputText class="form-control" @bind-Value="model.Manufacturer" /></div><div class="col-md-4"><label class="form-label">Modelo</label><InputText class="form-control" @bind-Value="model.Model" /></div><div class="col-md-4"><label class="form-label">Sistema operativo</label><InputText class="form-control" @bind-Value="model.OperatingSystem" /></div><div class="col-12 mt-4"><div class="p-3 rounded-3 bg-light border"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="model.MonitoringEnabled" /><label class="form-check-label fw-semibold">Habilitar monitoreo automático</label></div><div class="form-hint ms-4">NetWatch realizará comprobaciones ICMP periódicas y actualizará el estado del dispositivo.</div></div></div></div>
+        </div>
+        <div class="d-flex gap-2 justify-content-end"><a class="btn btn-outline-secondary" href="devices">Cancelar</a><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Guardar dispositivo")</button></div>
+    </EditForm>
+</section>
+
 @code {
- [Parameter] public int? Id{get;set;} private DeviceForm model=new(); private IReadOnlyList<DeviceTypeDto> types=[]; private string? error; private bool busy;
- protected override async Task OnInitializedAsync(){try{types=await Api.GetAsync<IReadOnlyList<DeviceTypeDto>>("api/devices/types");if(!Id.HasValue&&types.Count>0)model.DeviceTypeId=types[0].Id;if(Id.HasValue){var d=await Api.GetAsync<DeviceDto>($"api/devices/{Id}");model=new(){DeviceTypeId=d.DeviceTypeId,Name=d.Name,IpAddress=d.IpAddress,MacAddress=d.MacAddress,Manufacturer=d.Manufacturer,Model=d.Model,OperatingSystem=d.OperatingSystem,Location=d.Location,Description=d.Description,SubnetMask=d.SubnetMask,Gateway=d.Gateway,PrimaryDns=d.PrimaryDns,SecondaryDns=d.SecondaryDns,MonitoringEnabled=d.MonitoringEnabled};}}catch(Exception ex){error=ex.Message;}}
- private async Task Save(){busy=true;try{if(Id.HasValue)await Api.PutAsync<DeviceDto>($"api/devices/{Id}",model);else await Api.PostAsync<DeviceDto>("api/devices",model);Navigation.NavigateTo("/devices");}catch(Exception ex){error=ex.Message;}finally{busy=false;}}
+    [Parameter] public int? Id { get; set; }
+    private DeviceForm model = new();
+    private IReadOnlyList<DeviceTypeDto> types = [];
+    private string? error;
+    private bool busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            types = await Api.GetAsync<IReadOnlyList<DeviceTypeDto>>("api/devices/types");
+            if (!Id.HasValue && types.Count > 0) model.DeviceTypeId = types[0].Id;
+            if (Id.HasValue)
+            {
+                var d = await Api.GetAsync<DeviceDto>($"api/devices/{Id}");
+                model = new() { DeviceTypeId = d.DeviceTypeId, Name = d.Name, IpAddress = d.IpAddress, MacAddress = d.MacAddress, Manufacturer = d.Manufacturer, Model = d.Model, OperatingSystem = d.OperatingSystem, Location = d.Location, Description = d.Description, SubnetMask = d.SubnetMask, Gateway = d.Gateway, PrimaryDns = d.PrimaryDns, SecondaryDns = d.SecondaryDns, MonitoringEnabled = d.MonitoringEnabled };
+            }
+        }
+        catch (Exception ex) { error = ex.Message; }
+    }
+
+    private async Task Save() { busy = true; try { if (Id.HasValue) await Api.PutAsync<DeviceDto>($"api/devices/{Id}", model); else await Api.PostAsync<DeviceDto>("api/devices", model); Navigation.NavigateTo("/devices"); } catch (Exception ex) { error = ex.Message; } finally { busy = false; } }
 }

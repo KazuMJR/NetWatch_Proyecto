@@ -4,8 +4,53 @@
 @inject IJSRuntime JS
 
 <PageTitle>Reportes | NetWatch</PageTitle>
-<div class="page-heading"><div><h1>Reportes</h1><p>Consulta histórica por dispositivo y rango de fechas</p></div></div>
-@if(error is not null){<div class="alert alert-danger">@error</div>}
-<section class="panel mb-4"><div class="row g-3 align-items-end"><div class="col-md-3"><label class="form-label">Tipo</label><select class="form-select" @bind="type"><option value="metrics">Métricas</option><option value="events">Eventos</option><option value="alerts">Alertas</option><option value="states">Estados</option></select></div><div class="col-md-3"><label class="form-label">Dispositivo</label><select class="form-select" @bind="deviceId"><option value="">Todos</option>@foreach(var d in devices){<option value="@d.Id">@d.Name</option>}</select></div><div class="col-md-2"><label class="form-label">Desde</label><InputDate class="form-control" @bind-Value="from" /></div><div class="col-md-2"><label class="form-label">Hasta</label><InputDate class="form-control" @bind-Value="to" /></div><div class="col-md-2"><button class="btn btn-primary me-2" @onclick="Generate">Generar</button><button class="btn btn-outline-secondary" @onclick="Download">CSV</button></div></div></section>
-<section class="panel"><h2>Resultados (@rows.Count)</h2><div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Categoría</th><th>Detalle</th><th>Valores</th></tr></thead><tbody>@foreach(var r in rows){<tr><td>@r.DateUtc.ToString("g")</td><td>@r.DeviceName</td><td>@DisplayLabels.Category(r.Category)</td><td>@DisplayLabels.Text(r.Detail)</td><td>@r.Value1 @r.Value2 @r.Value3</td></tr>}</tbody></table></div></section>
-@code { private IReadOnlyList<DeviceDto>devices=[];private IReadOnlyList<ReportRowDto>rows=[];private string type="metrics";private string deviceId="";private DateTime? from=DateTime.UtcNow.Date.AddDays(-7);private DateTime? to=DateTime.UtcNow.Date.AddDays(1);private string? error;protected override async Task OnInitializedAsync(){try{devices=await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");await Generate();}catch(Exception ex){error=ex.Message;}}private static string Utc(DateTime? value)=>value.HasValue?DateTime.SpecifyKind(value.Value,DateTimeKind.Utc).ToString("O"):"";private string Query(string path){var d=string.IsNullOrWhiteSpace(deviceId)?"":$"&deviceId={deviceId}";return $"{path}?type={type}{d}&fromUtc={Uri.EscapeDataString(Utc(from))}&toUtc={Uri.EscapeDataString(Utc(to))}";}private async Task Generate(){try{error=null;rows=await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports"));}catch(Exception ex){error=ex.Message;}}private async Task Download(){try{var f=await Api.DownloadAsync(Query("api/reports/csv"));await JS.InvokeVoidAsync("netwatchDownload",f.FileName,Convert.ToBase64String(f.Data));}catch(Exception ex){error=ex.Message;}} }
+
+<div class="page-heading">
+    <div><span class="page-eyebrow">Análisis histórico</span><h1>Reportes</h1><p>Consulte, filtre y exporte la información recopilada por NetWatch.</p></div>
+    <div class="page-actions"><button class="btn btn-outline-primary" @onclick="Download"><AppIcon Name="download" Size="17" /> Exportar CSV</button></div>
+</div>
+
+@if (error is not null) { <div class="alert alert-danger"><strong>No fue posible generar el reporte.</strong> @error</div> }
+
+<section class="panel filter-panel mb-4">
+    <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Parámetros del reporte</div>
+    <div class="row g-3 align-items-end">
+        <div class="col-lg-3 col-md-6"><label class="form-label">Tipo de información</label><select class="form-select" @bind="type"><option value="metrics">Métricas de rendimiento</option><option value="events">Eventos del sistema</option><option value="alerts">Alertas generadas</option><option value="states">Cambios de estado</option></select></div>
+        <div class="col-lg-3 col-md-6"><label class="form-label">Dispositivo</label><select class="form-select" @bind="deviceId"><option value="">Todos los dispositivos</option>@foreach (var device in devices){<option value="@device.Id">@device.Name</option>}</select></div>
+        <div class="col-lg-2 col-md-4"><label class="form-label">Fecha inicial</label><InputDate class="form-control" @bind-Value="from" /></div>
+        <div class="col-lg-2 col-md-4"><label class="form-label">Fecha final</label><InputDate class="form-control" @bind-Value="to" /></div>
+        <div class="col-lg-2 col-md-4"><button class="btn btn-primary w-100" @onclick="Generate"><AppIcon Name="reports" Size="16" /> Generar reporte</button></div>
+    </div>
+</section>
+
+<div class="summary-strip mb-3"><span class="summary-pill">Tipo <strong>@TypeLabel(type)</strong></span><span class="summary-pill">Periodo <strong>@from?.ToString("dd/MM/yyyy") – @to?.ToString("dd/MM/yyyy")</strong></span><span class="summary-pill">Resultados <strong>@rows.Count</strong></span></div>
+
+<section class="panel">
+    <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="reports" Size="18" /></span><div><h2>Resultados del reporte</h2><p class="panel-subtitle">Información ordenada cronológicamente</p></div></div><span class="panel-count">@rows.Count filas</span></div>
+    @if (rows.Count == 0)
+    {
+        <div class="empty"><span class="empty-icon"><AppIcon Name="reports" /></span>No se encontraron datos en el periodo seleccionado.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Categoría</th><th>Detalle</th><th>Valores registrados</th></tr></thead><tbody>@foreach (var row in rows){<tr><td>@row.DateUtc.ToString("dd/MM/yyyy HH:mm")</td><td><a class="table-primary-link" href="devices/@row.DeviceId">@row.DeviceName</a></td><td><span class="status info">@DisplayLabels.Category(row.Category)</span></td><td>@DisplayLabels.Text(row.Detail)</td><td>@Values(row)</td></tr>}</tbody></table></div>
+    }
+</section>
+
+@code {
+    private IReadOnlyList<DeviceDto> devices = [];
+    private IReadOnlyList<ReportRowDto> rows = [];
+    private string type = "metrics";
+    private string deviceId = "";
+    private DateTime? from = DateTime.UtcNow.Date.AddDays(-7);
+    private DateTime? to = DateTime.UtcNow.Date.AddDays(1);
+    private string? error;
+
+    protected override async Task OnInitializedAsync() { try { devices = await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices"); await Generate(); } catch (Exception ex) { error = ex.Message; } }
+    private static string Utc(DateTime? value) => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc).ToString("O") : "";
+    private string Query(string path) { var device = string.IsNullOrWhiteSpace(deviceId) ? "" : $"&deviceId={deviceId}"; return $"{path}?type={type}{device}&fromUtc={Uri.EscapeDataString(Utc(from))}&toUtc={Uri.EscapeDataString(Utc(to))}"; }
+    private async Task Generate() { try { error = null; rows = await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports")); } catch (Exception ex) { error = ex.Message; } }
+    private async Task Download() { try { error = null; var file = await Api.DownloadAsync(Query("api/reports/csv")); await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data)); } catch (Exception ex) { error = ex.Message; } }
+    private static string TypeLabel(string value) => value switch { "metrics" => "Métricas", "events" => "Eventos", "alerts" => "Alertas", "states" => "Estados", _ => value };
+    private static string Values(ReportRowDto row) => row.Category == "Metric" ? $"CPU {row.Value1:0.##}% · RAM {row.Value2:0.##}% · Disco {row.Value3:0.##}%" : row.Value1.HasValue || row.Value2.HasValue || row.Value3.HasValue ? $"{row.Value1:0.##} {row.Value2:0.##} {row.Value3:0.##}".Trim() : "—";
+}

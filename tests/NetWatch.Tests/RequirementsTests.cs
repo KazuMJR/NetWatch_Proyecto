@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 using NetWatch.API.Contracts;
 using NetWatch.API.Controllers;
@@ -145,5 +146,27 @@ public sealed class RequirementsTests
         Assert.Equal("tecnico", first.Username);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => controller.Update(first.Id, new UpdateUserRequest("Técnico", "Uno", "ocupado", "uno@n.test", RoleNames.Technician, true, null), default));
+    }
+
+    [Fact(DisplayName = "CP-016 seeding recognizes a renamed user by email")]
+    public async Task CP016_SeedRecognizesRenamedUser()
+    {
+        await using var db = CreateDb();
+        var role = await db.Roles.SingleAsync(x => x.Name == RoleNames.Technician);
+        db.Users.Add(new User { RoleId = role.Id, Role = role, FirstName = "NetWatch", LastName = "Técnico", Email = "technician@netwatch.local", Username = "tecnico", PasswordHash = "hash", IsActive = true });
+        await db.SaveChangesAsync();
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["Database:AutoMigrate"] = "false",
+            ["Seed:TechnicianUsername"] = "technician",
+            ["Seed:TechnicianPassword"] = "Clave.Temporal.2026!",
+            ["Seed:TechnicianEmail"] = "technician@netwatch.local"
+        }).Build();
+
+        await new DbInitializer(db, new PasswordHasher<User>(), configuration).InitializeAsync();
+
+        Assert.Single(await db.Users.ToListAsync());
+        Assert.Equal("tecnico", (await db.Users.SingleAsync()).Username);
     }
 }

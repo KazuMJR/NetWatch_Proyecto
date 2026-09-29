@@ -1,16 +1,17 @@
 @inject AuthService Auth
 @inject NavigationManager Navigation
 
-<div class="brand"><span class="brand-mark">NW</span><div><b>NetWatch</b><small>Gestión de red</small></div></div>
+<div class="brand"><span class="brand-mark"><AppIcon Name="activity" Size="22" /></span><div><b>NetWatch</b><small>Network Management</small></div></div>
+<div class="nav-section-label">Operaciones</div>
 <nav class="nav flex-column">
-    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Panel principal</NavLink>
-    <NavLink class="nav-link" href="devices">Dispositivos</NavLink>
-    <NavLink class="nav-link" href="events-alerts">Eventos y alertas</NavLink>
-    <NavLink class="nav-link" href="reports">Reportes</NavLink>
-    <AuthorizeView Roles="Administrator"><NavLink class="nav-link" href="users">Usuarios</NavLink></AuthorizeView>
+    <NavLink class="nav-link" href="" Match="NavLinkMatch.All"><AppIcon Name="dashboard" /> <span>Panel principal</span></NavLink>
+    <NavLink class="nav-link" href="devices"><AppIcon Name="devices" /> <span>Dispositivos</span></NavLink>
+    <NavLink class="nav-link" href="events-alerts"><AppIcon Name="alerts" /> <span>Eventos y alertas</span></NavLink>
+    <NavLink class="nav-link" href="reports"><AppIcon Name="reports" /> <span>Reportes</span></NavLink>
+    <AuthorizeView Roles="Administrator"><div class="nav-section-label nav-section-spaced">Administración</div><NavLink class="nav-link" href="users"><AppIcon Name="users" /> <span>Usuarios</span></NavLink></AuthorizeView>
 </nav>
 <AuthorizeView>
-    <Authorized><button class="btn btn-outline-light btn-sm logout" @onclick="Logout">Cerrar sesión</button></Authorized>
+    <Authorized><button class="logout" @onclick="Logout"><AppIcon Name="logout" Size="18" /><span>Cerrar sesión</span></button></Authorized>
 </AuthorizeView>
 
 @code {

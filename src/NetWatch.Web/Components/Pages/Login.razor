@@ -1,23 +1,40 @@
 @page "/login"
 @attribute [AllowAnonymous]
+@layout AuthLayout
 @inject AuthService Auth
 @inject NavigationManager Navigation
 
 <PageTitle>Iniciar sesión | NetWatch</PageTitle>
+
 <div class="login-page">
-  <div class="login-card">
-    <div class="login-logo">NW</div><h1>NetWatch NMS</h1><p class="text-muted">Monitoreo y administración de red</p>
-    @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert alert-danger">@error</div> }
-    <EditForm Model="model" OnValidSubmit="SubmitLogin"><DataAnnotationsValidator />
-      <div class="mb-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="model.Username" /><ValidationMessage For="() => model.Username" /></div>
-      <div class="mb-3"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="model.Password" /><ValidationMessage For="() => model.Password" /></div>
-      <button class="btn btn-primary w-100" disabled="@busy">@(busy ? "Validando..." : "Ingresar")</button>
-    </EditForm>
-  </div>
+    <section class="login-visual">
+        <div class="login-brand"><span class="login-logo"><AppIcon Name="activity" Size="23" /></span><span>NetWatch NMS</span></div>
+        <div class="login-copy">
+            <span class="page-eyebrow text-info">Centro de monitoreo</span>
+            <h2>Visibilidad completa de su infraestructura.</h2>
+            <p>Supervise dispositivos, analice métricas y responda a incidentes desde una sola plataforma.</p>
+            <div class="login-feature-list"><div class="login-feature"><span><AppIcon Name="activity" Size="15" /></span> Monitoreo de disponibilidad en tiempo real</div><div class="login-feature"><span><AppIcon Name="alerts" Size="15" /></span> Alertas y trazabilidad de incidentes</div><div class="login-feature"><span><AppIcon Name="reports" Size="15" /></span> Reportes históricos exportables</div></div>
+        </div>
+        <small class="text-white-50">NetWatch Network Management System</small>
+    </section>
+    <section class="login-form-area">
+        <div class="login-card">
+            <div class="login-card-header"><h1>Bienvenido</h1><p>Ingrese sus credenciales para acceder al centro de operaciones.</p></div>
+            @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert alert-danger">@error</div> }
+            <EditForm Model="model" OnValidSubmit="SubmitLogin"><DataAnnotationsValidator />
+                <div class="mb-3"><label class="form-label">Nombre de usuario</label><InputText class="form-control" autocomplete="username" @bind-Value="model.Username" placeholder="Ingrese su usuario" /><ValidationMessage For="() => model.Username" /></div>
+                <div class="mb-3"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" autocomplete="current-password" @bind-Value="model.Password" placeholder="Ingrese su contraseña" /><ValidationMessage For="() => model.Password" /></div>
+                <button class="btn btn-primary w-100 mt-2" disabled="@busy"><AppIcon Name="shield" Size="17" /> @(busy ? "Validando acceso..." : "Iniciar sesión")</button>
+            </EditForm>
+            <div class="login-security"><AppIcon Name="shield" Size="13" /> Acceso protegido mediante autenticación segura</div>
+        </div>
+    </section>
 </div>
 
 @code {
-  [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
-  private readonly LoginModel model = new(); private string? error; private bool busy;
-  private async Task SubmitLogin() { busy=true; error=null; try { await Auth.LoginAsync(model); Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : "/" + ReturnUrl); } catch(Exception ex){ error=ex.Message; } finally{busy=false;} }
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+    private readonly LoginModel model = new();
+    private string? error;
+    private bool busy;
+    private async Task SubmitLogin() { busy = true; error = null; try { await Auth.LoginAsync(model); Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : "/" + ReturnUrl); } catch (Exception ex) { error = ex.Message; } finally { busy = false; } }
 }

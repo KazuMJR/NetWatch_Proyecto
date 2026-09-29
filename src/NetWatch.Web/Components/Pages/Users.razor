@@ -5,35 +5,23 @@
 <PageTitle>Usuarios | NetWatch</PageTitle>
 
 <div class="page-heading">
-    <div><h1>Usuarios</h1><p>Administradores y técnicos autorizados</p></div>
-    <button class="btn btn-primary" @onclick="ShowCreate">Nuevo usuario</button>
+    <div><span class="page-eyebrow">Control de acceso</span><h1>Usuarios</h1><p>Administre las cuentas, permisos y acceso al centro de monitoreo.</p></div>
+    <div class="page-actions"><button class="btn btn-primary" @onclick="ShowCreate"><AppIcon Name="plus" Size="17" /> Nuevo usuario</button></div>
 </div>
 
-@if (error is not null)
-{
-    <div class="alert alert-danger">@error</div>
-}
-@if (message is not null)
-{
-    <div class="alert alert-success">@message</div>
-}
+@if (error is not null) { <div class="alert alert-danger"><strong>No fue posible completar la operación.</strong> @error</div> }
+@if (message is not null) { <div class="alert alert-success"><AppIcon Name="check" Size="16" /> @message</div> }
+
+<div class="summary-strip mb-3"><span class="summary-pill">Usuarios <strong>@users.Count</strong></span><span class="summary-pill">Administradores <strong>@users.Count(x => x.Role == "Administrator")</strong></span><span class="summary-pill">Técnicos <strong>@users.Count(x => x.Role == "Technician")</strong></span><span class="summary-pill">Activos <strong>@users.Count(x => x.IsActive)</strong></span></div>
 
 @if (showCreate)
 {
     <section class="panel mb-4">
-        <h2>Crear usuario</h2>
-        <EditForm Model="createForm" OnValidSubmit="Create">
-            <DataAnnotationsValidator /><ValidationSummary />
-            <div class="row g-3">
-                <div class="col-md-3"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="createForm.FirstName" /></div>
-                <div class="col-md-3"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="createForm.LastName" /></div>
-                <div class="col-md-3"><label class="form-label">Correo</label><InputText class="form-control" @bind-Value="createForm.Email" /></div>
-                <div class="col-md-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="createForm.Username" /></div>
-                <div class="col-md-4"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="createForm.Password" /></div>
-                <div class="col-md-4"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="createForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div>
-            </div>
-            <button class="btn btn-primary mt-3" disabled="@busy">Guardar</button>
-            <button type="button" class="btn btn-outline-secondary mt-3 ms-2" @onclick="CancelForms">Cancelar</button>
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="plus" Size="18" /></span><div><h2>Crear nueva cuenta</h2><p class="panel-subtitle">Defina la identidad y el nivel de acceso del usuario</p></div></div></div>
+        <EditForm Model="createForm" OnValidSubmit="Create"><DataAnnotationsValidator /><ValidationSummary />
+            <div class="form-section"><div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="users" Size="17" /></span><div><h2>Datos personales</h2><p>Información visible dentro del sistema.</p></div></div><div class="row g-3"><div class="col-md-4"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="createForm.FirstName" /></div><div class="col-md-4"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="createForm.LastName" /></div><div class="col-md-4"><label class="form-label">Correo electrónico</label><InputText class="form-control" @bind-Value="createForm.Email" /></div></div></div>
+            <div class="form-section"><div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="shield" Size="17" /></span><div><h2>Credenciales y permisos</h2><p>Datos utilizados para iniciar sesión.</p></div></div><div class="row g-3"><div class="col-md-4"><label class="form-label">Nombre de usuario</label><InputText class="form-control" @bind-Value="createForm.Username" /></div><div class="col-md-4"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="createForm.Password" /><div class="form-hint">Mínimo 10 caracteres.</div></div><div class="col-md-4"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="createForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div></div></div>
+            <div class="d-flex gap-2 justify-content-end"><button type="button" class="btn btn-outline-secondary" @onclick="CancelForms">Cancelar</button><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Crear usuario")</button></div>
         </EditForm>
     </section>
 }
@@ -41,43 +29,29 @@
 @if (editingUser is not null)
 {
     <section class="panel mb-4">
-        <h2>Editar @editingUser.Username</h2>
-        <EditForm Model="editForm" OnValidSubmit="SaveEdit">
-            <DataAnnotationsValidator /><ValidationSummary />
-            <div class="row g-3">
-                <div class="col-md-3"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="editForm.FirstName" /></div>
-                <div class="col-md-3"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="editForm.LastName" /></div>
-                <div class="col-md-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="editForm.Username" /></div>
-                <div class="col-md-3"><label class="form-label">Correo</label><InputText class="form-control" @bind-Value="editForm.Email" /></div>
-                <div class="col-md-3"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="editForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div>
-                <div class="col-md-4"><label class="form-label">Nueva contraseña (opcional)</label><InputText type="password" class="form-control" @bind-Value="editForm.NewPassword" /></div>
-                <div class="col-md-4 d-flex align-items-end"><div class="form-check mb-2"><InputCheckbox class="form-check-input" @bind-Value="editForm.IsActive" /><label class="form-check-label">Usuario activo</label></div></div>
-            </div>
-            <button class="btn btn-primary mt-3" disabled="@busy">Guardar cambios</button>
-            <button type="button" class="btn btn-outline-secondary mt-3 ms-2" @onclick="CancelForms">Cancelar</button>
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="edit" Size="18" /></span><div><h2>Editar cuenta de @editingUser.Username</h2><p class="panel-subtitle">Actualice los datos y permisos del usuario</p></div></div></div>
+        <EditForm Model="editForm" OnValidSubmit="SaveEdit"><DataAnnotationsValidator /><ValidationSummary />
+            <div class="row g-3"><div class="col-md-4"><label class="form-label">Nombre</label><InputText class="form-control" @bind-Value="editForm.FirstName" /></div><div class="col-md-4"><label class="form-label">Apellido</label><InputText class="form-control" @bind-Value="editForm.LastName" /></div><div class="col-md-4"><label class="form-label">Correo electrónico</label><InputText class="form-control" @bind-Value="editForm.Email" /></div><div class="col-md-4"><label class="form-label">Nombre de usuario</label><InputText class="form-control" @bind-Value="editForm.Username" /><div class="form-hint">Se usará en el siguiente inicio de sesión.</div></div><div class="col-md-4"><label class="form-label">Nueva contraseña</label><InputText type="password" class="form-control" @bind-Value="editForm.NewPassword" /><div class="form-hint">Déjela vacía para conservar la actual.</div></div><div class="col-md-4"><label class="form-label">Rol</label><InputSelect class="form-select" @bind-Value="editForm.Role"><option value="Technician">Técnico</option><option value="Administrator">Administrador</option></InputSelect></div><div class="col-12"><div class="p-3 rounded-3 bg-light border"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="editForm.IsActive" /><label class="form-check-label fw-semibold">Permitir que este usuario inicie sesión</label></div></div></div></div>
+            <div class="d-flex gap-2 justify-content-end mt-4"><button type="button" class="btn btn-outline-secondary" @onclick="CancelForms">Cancelar</button><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Guardar cambios")</button></div>
         </EditForm>
     </section>
 }
 
 <section class="panel">
-    <div class="table-responsive">
-        <table class="table">
-            <thead><tr><th>Usuario</th><th>Nombre</th><th>Correo</th><th>Rol</th><th>Estado</th><th></th></tr></thead>
-            <tbody>
-            @foreach (var user in users)
-            {
-                <tr>
-                    <td>@user.Username</td><td>@user.FirstName @user.LastName</td><td>@user.Email</td>
-                    <td>@RoleLabel(user.Role)</td><td>@(user.IsActive ? "Activo" : "Inactivo")</td>
-                    <td class="text-end">
-                        <button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(user)">Editar</button>
-                        <button class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success") ms-1" @onclick="() => Toggle(user)">@(user.IsActive ? "Desactivar" : "Activar")</button>
-                    </td>
-                </tr>
-            }
-            </tbody>
-        </table>
-    </div>
+    <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="users" Size="18" /></span><div><h2>Cuentas autorizadas</h2><p class="panel-subtitle">Usuarios con acceso al sistema NetWatch</p></div></div><span class="panel-count">@users.Count cuentas</span></div>
+    @if (users.Count == 0)
+    {
+        <div class="empty"><span class="empty-icon"><AppIcon Name="users" /></span>No hay usuarios registrados.</div>
+    }
+    else
+    {
+        <div class="table-responsive"><table class="table"><thead><tr><th>Usuario</th><th>Nombre completo</th><th>Correo</th><th>Rol</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody>
+        @foreach (var user in users)
+        {
+            <tr><td><div class="value-stack"><span class="mini-avatar">@Initials(user.FirstName, user.LastName)</span><strong>@user.Username</strong></div></td><td>@user.FirstName @user.LastName</td><td>@user.Email</td><td><span class="status info">@DisplayLabels.Role(user.Role)</span></td><td><span class="status @(user.IsActive ? "active" : "inactive")">@(user.IsActive ? "Activo" : "Inactivo")</span></td><td>@user.RegisteredAtUtc.ToString("dd/MM/yyyy")</td><td class="text-end"><button class="btn btn-sm btn-outline-primary" @onclick="() => Edit(user)"><AppIcon Name="edit" Size="14" /> Editar</button><button class="btn btn-sm @(user.IsActive ? "btn-outline-danger" : "btn-outline-success") ms-1" @onclick="() => Toggle(user)">@(user.IsActive ? "Desactivar" : "Activar")</button></td></tr>
+        }
+        </tbody></table></div>
+    }
 </section>
 
 @code {
@@ -91,52 +65,12 @@
     private string? message;
 
     protected override Task OnInitializedAsync() => Load();
-
-    private async Task Load()
-    {
-        try { error = null; users = await Api.GetAsync<IReadOnlyList<UserDto>>("api/users"); }
-        catch (Exception ex) { error = ex.Message; }
-    }
-
-    private void ShowCreate()
-    {
-        editingUser = null; createForm = new(); showCreate = true; error = null; message = null;
-    }
-
-    private void Edit(UserDto user)
-    {
-        showCreate = false; editingUser = user; error = null; message = null;
-        editForm = new UserEditForm { FirstName = user.FirstName, LastName = user.LastName, Username = user.Username, Email = user.Email, Role = user.Role, IsActive = user.IsActive };
-    }
-
+    private async Task Load() { try { error = null; users = await Api.GetAsync<IReadOnlyList<UserDto>>("api/users"); } catch (Exception ex) { error = ex.Message; } }
+    private void ShowCreate() { editingUser = null; createForm = new(); showCreate = true; error = null; message = null; }
+    private void Edit(UserDto user) { showCreate = false; editingUser = user; error = null; message = null; editForm = new UserEditForm { FirstName = user.FirstName, LastName = user.LastName, Username = user.Username, Email = user.Email, Role = user.Role, IsActive = user.IsActive }; }
     private void CancelForms() { showCreate = false; editingUser = null; }
-
-    private async Task Create()
-    {
-        busy = true;
-        try { await Api.PostAsync<UserDto>("api/users", createForm); CancelForms(); await Load(); message = "Usuario creado correctamente."; }
-        catch (Exception ex) { error = ex.Message; }
-        finally { busy = false; }
-    }
-
-    private async Task SaveEdit()
-    {
-        if (editingUser is null) return;
-        busy = true;
-        try { await Api.PutAsync<UserDto>($"api/users/{editingUser.Id}", editForm); CancelForms(); await Load(); message = "Usuario actualizado. Si cambió su propio nombre de usuario, utilice el nuevo nombre en el próximo inicio de sesión."; }
-        catch (Exception ex) { error = ex.Message; }
-        finally { busy = false; }
-    }
-
-    private async Task Toggle(UserDto user)
-    {
-        try
-        {
-            var body = new { user.FirstName, user.LastName, user.Username, user.Email, user.Role, IsActive = !user.IsActive, NewPassword = (string?)null };
-            await Api.PutAsync<UserDto>($"api/users/{user.Id}", body); await Load();
-        }
-        catch (Exception ex) { error = ex.Message; }
-    }
-
-    private static string RoleLabel(string role) => role == "Administrator" ? "Administrador" : "Técnico";
+    private async Task Create() { busy = true; try { await Api.PostAsync<UserDto>("api/users", createForm); CancelForms(); await Load(); message = "Usuario creado correctamente."; } catch (Exception ex) { error = ex.Message; } finally { busy = false; } }
+    private async Task SaveEdit() { if (editingUser is null) return; busy = true; try { await Api.PutAsync<UserDto>($"api/users/{editingUser.Id}", editForm); CancelForms(); await Load(); message = "Usuario actualizado. Si cambió su propio nombre de usuario, utilice el nuevo nombre en el próximo inicio de sesión."; } catch (Exception ex) { error = ex.Message; } finally { busy = false; } }
+    private async Task Toggle(UserDto user) { try { var body = new { user.FirstName, user.LastName, user.Username, user.Email, user.Role, IsActive = !user.IsActive, NewPassword = (string?)null }; await Api.PutAsync<UserDto>($"api/users/{user.Id}", body); await Load(); message = $"Usuario {(user.IsActive ? "desactivado" : "activado")} correctamente."; } catch (Exception ex) { error = ex.Message; } }
+    private static string Initials(string firstName, string lastName) => $"{(string.IsNullOrWhiteSpace(firstName) ? 'N' : firstName[0])}{(string.IsNullOrWhiteSpace(lastName) ? 'W' : lastName[0])}".ToUpperInvariant();
 }

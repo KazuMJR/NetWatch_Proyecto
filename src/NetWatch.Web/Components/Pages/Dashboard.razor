@@ -4,20 +4,112 @@
 @inject NetWatchApiClient Api
 
 <PageTitle>Panel principal | NetWatch</PageTitle>
-<div class="page-heading"><div><h1>Panel principal</h1><p>Estado actual del laboratorio virtual · actualización automática cada 15 s</p></div><button class="btn btn-outline-primary" @onclick="Load">Actualizar</button></div>
-@if (error is not null) { <div class="alert alert-danger">@error</div> }
-else if (data is null) { <p>Cargando indicadores...</p> }
-else {
- <div class="metric-grid">
-  <div class="metric-card"><span>Total</span><strong>@data.Total</strong></div><div class="metric-card success"><span>Activos</span><strong>@data.Active</strong></div>
-  <div class="metric-card warning"><span>Advertencia</span><strong>@data.Warning</strong></div><div class="metric-card danger"><span>Desconectados</span><strong>@data.Disconnected</strong></div>
-  <div class="metric-card muted"><span>Inactivos</span><strong>@data.Inactive</strong></div>
- </div>
- <section class="panel mt-4"><h2>Dispositivos monitoreados</h2>@if(devices.Count==0){<p class="empty">No hay dispositivos activos registrados.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>IP</th><th>Tipo</th><th>Estado</th><th>Último ping UTC</th></tr></thead><tbody>@foreach(var device in devices){<tr><td><a href="devices/@device.Id">@device.Name</a></td><td><code>@device.IpAddress</code></td><td>@DisplayLabels.DeviceType(device.DeviceType)</td><td><span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></td><td>@(device.LastPingAtUtc?.ToString("g")??"Sin datos")</td></tr>}</tbody></table></div>}</section>
- <div class="row g-4 mt-1"><div class="col-xl-6"><section class="panel"><h2>Alertas pendientes recientes</h2>@if(data.RecentAlerts.Count==0){<p class="empty">Sin alertas pendientes.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>Alerta</th><th>Nivel</th><th>Fecha UTC</th></tr></thead><tbody>@foreach(var a in data.RecentAlerts){<tr><td><a href="devices/@a.DeviceId">@a.DeviceName</a></td><td>@DisplayLabels.Text(a.Title)</td><td><span class="status @a.Level.ToLowerInvariant()">@DisplayLabels.Severity(a.Level)</span></td><td>@a.GeneratedAtUtc.ToString("g")</td></tr>}</tbody></table></div>}</section></div>
- <div class="col-xl-6"><section class="panel"><h2>Métricas recientes</h2>@if(data.RecentMetrics.Count==0){<p class="empty">Aún no hay métricas.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>CPU</th><th>RAM</th><th>Disco</th></tr></thead><tbody>@foreach(var m in data.RecentMetrics){<tr><td>@m.DeviceName</td><td>@m.CpuPercent%</td><td>@m.MemoryPercent%</td><td>@m.DiskPercent%</td></tr>}</tbody></table></div>}</section></div></div>
- <section class="panel mt-4"><h2>Eventos recientes</h2>@if(events.Count==0){<p class="empty">Aún no hay eventos.</p>}else{<div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Tipo</th><th>Severidad</th><th>Descripción</th></tr></thead><tbody>@foreach(var item in events){<tr><td>@item.OccurredAtUtc.ToString("g")</td><td>@item.DeviceName</td><td>@DisplayLabels.EventType(item.EventType)</td><td>@DisplayLabels.Severity(item.Severity)</td><td>@DisplayLabels.Text(item.Description)</td></tr>}</tbody></table></div>}</section>
+
+<div class="page-heading">
+    <div><span class="page-eyebrow">Resumen operativo</span><h1>Panel principal</h1><p>Visión general del laboratorio y sus indicadores en tiempo real.</p></div>
+    <div class="page-actions"><button class="btn btn-outline-primary" @onclick="Load"><AppIcon Name="refresh" Size="17" /> Actualizar datos</button></div>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger"><strong>No fue posible actualizar el panel.</strong> @error</div>
 }
+else if (data is null)
+{
+    <div class="loading-state"><span class="loading-dot"></span> Preparando indicadores del sistema...</div>
+}
+else
+{
+    <div class="metric-grid">
+        <div class="metric-card">
+            <div class="metric-card-head"><span>Inventario total</span><span class="metric-icon"><AppIcon Name="server" /></span></div>
+            <strong>@data.Total</strong><small>Dispositivos registrados</small>
+        </div>
+        <div class="metric-card success">
+            <div class="metric-card-head"><span>En línea</span><span class="metric-icon"><AppIcon Name="activity" /></span></div>
+            <strong>@data.Active</strong><small>Respondiendo correctamente</small>
+        </div>
+        <div class="metric-card warning">
+            <div class="metric-card-head"><span>Con advertencia</span><span class="metric-icon"><AppIcon Name="warning" /></span></div>
+            <strong>@data.Warning</strong><small>Requieren observación</small>
+        </div>
+        <div class="metric-card danger">
+            <div class="metric-card-head"><span>Desconectados</span><span class="metric-icon"><AppIcon Name="offline" /></span></div>
+            <strong>@data.Disconnected</strong><small>Sin respuesta de red</small>
+        </div>
+        <div class="metric-card muted">
+            <div class="metric-card-head"><span>Inactivos</span><span class="metric-icon"><AppIcon Name="pause" /></span></div>
+            <strong>@data.Inactive</strong><small>Fuera del monitoreo</small>
+        </div>
+    </div>
+
+    <section class="panel mt-4">
+        <div class="panel-header">
+            <div class="panel-title"><span class="panel-title-icon"><AppIcon Name="devices" Size="18" /></span><div><h2>Dispositivos monitoreados</h2><p class="panel-subtitle">Disponibilidad y última comunicación registrada</p></div></div>
+            <span class="panel-count">@devices.Count equipos</span>
+        </div>
+        @if (devices.Count == 0)
+        {
+            <div class="empty"><span class="empty-icon"><AppIcon Name="devices" /></span>No hay dispositivos activos registrados.</div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>Dirección IP</th><th>Tipo</th><th>Estado</th><th>Última comprobación</th><th>Respuesta</th></tr></thead><tbody>
+            @foreach (var device in devices)
+            {
+                <tr>
+                    <td><div class="value-stack"><span class="mini-avatar">@Initial(device.Name)</span><span><a class="table-primary-link" href="devices/@device.Id">@device.Name</a><span class="table-meta d-block">@(device.Location ?? "Sin ubicación")</span></span></div></td>
+                    <td><code>@device.IpAddress</code></td><td>@DisplayLabels.DeviceType(device.DeviceType)</td>
+                    <td><span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></td>
+                    <td>@FormatDate(device.LastPingAtUtc)</td><td>@(device.LastResponseTimeMs?.ToString("0.##") ?? "-") ms</td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+
+    <div class="row g-4 mt-1">
+        <div class="col-xl-6">
+            <section class="panel h-100">
+                <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="alerts" Size="18" /></span><div><h2>Alertas pendientes</h2><p class="panel-subtitle">Incidentes recientes que requieren atención</p></div></div><span class="panel-count">@data.RecentAlerts.Count</span></div>
+                @if (data.RecentAlerts.Count == 0)
+                {
+                    <div class="empty"><span class="empty-icon"><AppIcon Name="check" /></span>No existen alertas pendientes.</div>
+                }
+                else
+                {
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>Alerta</th><th>Nivel</th><th>Fecha</th></tr></thead><tbody>@foreach (var a in data.RecentAlerts){<tr><td><a class="table-primary-link" href="devices/@a.DeviceId">@a.DeviceName</a></td><td>@DisplayLabels.Text(a.Title)</td><td><span class="status @a.Level.ToLowerInvariant()">@DisplayLabels.Severity(a.Level)</span></td><td>@FormatDate(a.GeneratedAtUtc)</td></tr>}</tbody></table></div>
+                }
+            </section>
+        </div>
+        <div class="col-xl-6">
+            <section class="panel h-100">
+                <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="activity" Size="18" /></span><div><h2>Consumo reciente</h2><p class="panel-subtitle">Últimas métricas recibidas por dispositivo</p></div></div><span class="panel-count">@data.RecentMetrics.Count</span></div>
+                @if (data.RecentMetrics.Count == 0)
+                {
+                    <div class="empty"><span class="empty-icon"><AppIcon Name="activity" /></span>Aún no hay métricas disponibles.</div>
+                }
+                else
+                {
+                    <div class="table-responsive"><table class="table"><thead><tr><th>Dispositivo</th><th>CPU</th><th>RAM</th><th>Disco</th></tr></thead><tbody>@foreach (var m in data.RecentMetrics){<tr><td class="table-primary-link">@m.DeviceName</td><td>@Metric(m.CpuPercent)</td><td>@Metric(m.MemoryPercent)</td><td>@Metric(m.DiskPercent)</td></tr>}</tbody></table></div>
+                }
+            </section>
+        </div>
+    </div>
+
+    <section class="panel mt-4">
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="clock" Size="18" /></span><div><h2>Actividad reciente</h2><p class="panel-subtitle">Bitácora consolidada de cambios y eventos</p></div></div><span class="panel-count">Últimos @events.Count</span></div>
+        @if (events.Count == 0)
+        {
+            <div class="empty"><span class="empty-icon"><AppIcon Name="clock" /></span>Aún no hay eventos registrados.</div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Tipo</th><th>Severidad</th><th>Descripción</th></tr></thead><tbody>@foreach (var item in events){<tr><td>@FormatDate(item.OccurredAtUtc)</td><td class="table-primary-link">@item.DeviceName</td><td>@DisplayLabels.EventType(item.EventType)</td><td><span class="status @item.Severity.ToLowerInvariant()">@DisplayLabels.Severity(item.Severity)</span></td><td>@DisplayLabels.Text(item.Description)</td></tr>}</tbody></table></div>
+        }
+    </section>
+}
+
 @code {
     private readonly CancellationTokenSource refreshCancellation = new();
     private DashboardDto? data;
@@ -25,11 +117,7 @@ else {
     private IReadOnlyList<EventDto> events = [];
     private string? error;
 
-    protected override async Task OnInitializedAsync()
-    {
-        await Load();
-        _ = RefreshLoopAsync(refreshCancellation.Token);
-    }
+    protected override async Task OnInitializedAsync() { await Load(); _ = RefreshLoopAsync(refreshCancellation.Token); }
 
     private async Task Load()
     {
@@ -40,9 +128,7 @@ else {
             var devicesTask = Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");
             var eventsTask = Api.GetAsync<IReadOnlyList<EventDto>>("api/events?limit=10");
             await Task.WhenAll(dashboardTask, devicesTask, eventsTask);
-            data = await dashboardTask;
-            devices = await devicesTask;
-            events = await eventsTask;
+            data = await dashboardTask; devices = await devicesTask; events = await eventsTask;
         }
         catch (Exception ex) { error = ex.Message; }
     }
@@ -50,15 +136,18 @@ else {
     private async Task RefreshLoopAsync(CancellationToken cancellationToken)
     {
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
-        try
-        {
-            while (await timer.WaitForNextTickAsync(cancellationToken)) await InvokeAsync(Load);
-        }
+        try { while (await timer.WaitForNextTickAsync(cancellationToken)) await InvokeAsync(Load); }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
-    public ValueTask DisposeAsync()
+    private static string FormatDate(DateTime? value) => value?.ToString("dd/MM/yyyy HH:mm") ?? "Sin datos";
+    private static string Initial(string value) => string.IsNullOrWhiteSpace(value) ? "NW" : value[..Math.Min(2, value.Length)].ToUpperInvariant();
+    private static RenderFragment Metric(decimal value) => builder =>
     {
-        refreshCancellation.Cancel(); refreshCancellation.Dispose(); return ValueTask.CompletedTask;
-    }
+        builder.OpenElement(0, "div"); builder.AddContent(1, $"{value:0.##}%");
+        builder.OpenElement(2, "div"); builder.AddAttribute(3, "class", $"progress-thin {(value >= 90 ? "danger" : value >= 75 ? "warning" : "")}");
+        builder.OpenElement(4, "span"); builder.AddAttribute(5, "style", $"width:{Math.Clamp(value, 0, 100)}%"); builder.CloseElement(); builder.CloseElement(); builder.CloseElement();
+    };
+
+    public ValueTask DisposeAsync() { refreshCancellation.Cancel(); refreshCancellation.Dispose(); return ValueTask.CompletedTask; }
 }

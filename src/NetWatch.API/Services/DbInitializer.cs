@@ -49,9 +49,12 @@ public sealed class DbInitializer(NetWatchDbContext db, IPasswordHasher<User> ha
 
     private async Task EnsureUserAsync(string? username, string? password, string email, string firstName, string lastName, string roleName, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password) || await db.Users.AnyAsync(x => x.Username == username, cancellationToken)) return;
+        if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password)) return;
+        var normalizedUsername = username.Trim();
+        var normalizedEmail = email.Trim().ToLowerInvariant();
+        if (await db.Users.AnyAsync(x => x.Username == normalizedUsername || x.Email == normalizedEmail, cancellationToken)) return;
         var role = await db.Roles.SingleAsync(x => x.Name == roleName, cancellationToken);
-        var user = new User { Username = username.Trim(), Email = email.Trim().ToLowerInvariant(), FirstName = firstName, LastName = lastName, RoleId = role.Id, PasswordHash = string.Empty };
+        var user = new User { Username = normalizedUsername, Email = normalizedEmail, FirstName = firstName, LastName = lastName, RoleId = role.Id, PasswordHash = string.Empty };
         user.PasswordHash = hasher.HashPassword(user, password);
         db.Users.Add(user);
         await db.SaveChangesAsync(cancellationToken);

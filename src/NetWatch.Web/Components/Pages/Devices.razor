@@ -3,10 +3,59 @@
 @inject NetWatchApiClient Api
 
 <PageTitle>Dispositivos | NetWatch</PageTitle>
-<div class="page-heading"><div><h1>Dispositivos</h1><p>Inventario y disponibilidad de la infraestructura</p></div><AuthorizeView Roles="Administrator"><a class="btn btn-primary" href="devices/new">Registrar dispositivo</a></AuthorizeView></div>
-@if(error is not null){<div class="alert alert-danger">@error</div>} else if(devices is null){<p>Cargando...</p>} else {
- <section class="panel"><div class="table-responsive"><table class="table align-middle"><thead><tr><th>Nombre</th><th>Tipo</th><th>IP</th><th>Estado</th><th>Último ping UTC</th><th>Monitoreo</th><th></th></tr></thead><tbody>
- @foreach(var d in devices){<tr><td><a href="devices/@d.Id"><strong>@d.Name</strong></a><div class="small text-muted">@d.Location</div></td><td>@DisplayLabels.DeviceType(d.DeviceType)</td><td><code>@d.IpAddress</code></td><td><span class="status @d.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(d.Status)</span></td><td>@(d.LastPingAtUtc?.ToString("g")??"Sin datos")</td><td>@(d.MonitoringEnabled?"Habilitado":"Deshabilitado")</td><td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="devices/@d.Id">Ver</a> <AuthorizeView Roles="Administrator"><a class="btn btn-sm btn-outline-primary" href="devices/@d.Id/edit">Editar</a><button class="btn btn-sm btn-outline-danger ms-1" @onclick="()=>Deactivate(d)">Desactivar</button></AuthorizeView></td></tr>}
- </tbody></table></div></section>
+
+<div class="page-heading">
+    <div><span class="page-eyebrow">Infraestructura</span><h1>Dispositivos</h1><p>Inventario, disponibilidad y configuración de los equipos monitoreados.</p></div>
+    <AuthorizeView Roles="Administrator"><div class="page-actions"><a class="btn btn-primary" href="devices/new"><AppIcon Name="plus" Size="17" /> Registrar dispositivo</a></div></AuthorizeView>
+</div>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger"><strong>No fue posible cargar el inventario.</strong> @error</div>
 }
-@code { private IReadOnlyList<DeviceDto>? devices; private string? error; protected override Task OnInitializedAsync()=>Load(); private async Task Load(){try{devices=await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");}catch(Exception ex){error=ex.Message;}} private async Task Deactivate(DeviceDto d){if(!await JS.InvokeAsync<bool>("confirm",$"¿Desactivar {d.Name}?") )return;try{await Api.DeleteAsync($"api/devices/{d.Id}");await Load();}catch(Exception ex){error=ex.Message;}} [Inject] private IJSRuntime JS {get;set;}=null!; }
+else if (devices is null)
+{
+    <div class="loading-state"><span class="loading-dot"></span> Consultando dispositivos...</div>
+}
+else
+{
+    <div class="summary-strip mb-3">
+        <span class="summary-pill">Total <strong>@devices.Count</strong></span>
+        <span class="summary-pill">Activos <strong>@devices.Count(x => x.Status == "Active")</strong></span>
+        <span class="summary-pill">Con advertencia <strong>@devices.Count(x => x.Status == "Warning")</strong></span>
+        <span class="summary-pill">Desconectados <strong>@devices.Count(x => x.Status == "Disconnected")</strong></span>
+    </div>
+    <section class="panel">
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="server" Size="18" /></span><div><h2>Inventario de red</h2><p class="panel-subtitle">Equipos registrados en NetWatch</p></div></div><span class="panel-count">@devices.Count registros</span></div>
+        @if (devices.Count == 0)
+        {
+            <div class="empty"><span class="empty-icon"><AppIcon Name="devices" /></span>No hay dispositivos registrados.</div>
+        }
+        else
+        {
+            <div class="table-responsive"><table class="table align-middle"><thead><tr><th>Dispositivo</th><th>Tipo</th><th>Dirección IP</th><th>Estado</th><th>Último ping</th><th>Monitoreo</th><th>Acciones</th></tr></thead><tbody>
+            @foreach (var d in devices)
+            {
+                <tr>
+                    <td><div class="value-stack"><span class="mini-avatar">@Initial(d.Name)</span><span><a class="table-primary-link" href="devices/@d.Id">@d.Name</a><span class="table-meta d-block"><AppIcon Name="location" Size="11" /> @(d.Location ?? "Sin ubicación")</span></span></div></td>
+                    <td>@DisplayLabels.DeviceType(d.DeviceType)</td><td><code>@d.IpAddress</code></td><td><span class="status @d.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(d.Status)</span></td>
+                    <td><span>@FormatDate(d.LastPingAtUtc)</span><span class="table-meta d-block">@(d.LastResponseTimeMs?.ToString("0.##") ?? "-") ms</span></td>
+                    <td><span class="status @(d.MonitoringEnabled ? "active" : "inactive")">@(d.MonitoringEnabled ? "Habilitado" : "Deshabilitado")</span></td>
+                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="devices/@d.Id"><AppIcon Name="eye" Size="14" /> Ver</a> <AuthorizeView Roles="Administrator"><a class="btn btn-sm btn-outline-primary" href="devices/@d.Id/edit"><AppIcon Name="edit" Size="14" /> Editar</a><button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => Deactivate(d)"><AppIcon Name="pause" Size="13" /> Desactivar</button></AuthorizeView></td>
+                </tr>
+            }
+            </tbody></table></div>
+        }
+    </section>
+}
+
+@code {
+    private IReadOnlyList<DeviceDto>? devices;
+    private string? error;
+    [Inject] private IJSRuntime JS { get; set; } = null!;
+    protected override Task OnInitializedAsync() => Load();
+    private async Task Load() { try { error = null; devices = await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices"); } catch (Exception ex) { error = ex.Message; } }
+    private async Task Deactivate(DeviceDto device) { if (!await JS.InvokeAsync<bool>("confirm", $"¿Desactivar {device.Name}?") ) return; try { await Api.DeleteAsync($"api/devices/{device.Id}"); await Load(); } catch (Exception ex) { error = ex.Message; } }
+    private static string FormatDate(DateTime? value) => value?.ToString("dd/MM/yyyy HH:mm") ?? "Sin datos";
+    private static string Initial(string value) => string.IsNullOrWhiteSpace(value) ? "NW" : value[..Math.Min(2, value.Length)].ToUpperInvariant();
+}

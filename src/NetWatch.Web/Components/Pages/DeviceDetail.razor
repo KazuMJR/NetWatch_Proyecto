@@ -3,11 +3,83 @@
 @inject NetWatchApiClient Api
 
 <PageTitle>Detalle de dispositivo | NetWatch</PageTitle>
-@if(error is not null){<div class="alert alert-danger">@error</div>}else if(device is null){<p>Cargando...</p>}else{
- <div class="page-heading"><div><h1>@device.Name</h1><p>@DisplayLabels.DeviceType(device.DeviceType) · <code>@device.IpAddress</code> · <span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></p></div><div><button class="btn btn-outline-primary" @onclick="Ping">Ejecutar ping</button> <a class="btn btn-outline-secondary" href="devices">Volver</a></div></div>
- @if(pingResult is not null){<div class="alert alert-info">@pingResult</div>}
- <div class="row g-4"><div class="col-lg-4"><section class="panel"><h2>Configuración</h2><dl><dt>Máscara</dt><dd>@device.SubnetMask</dd><dt>Puerta de enlace</dt><dd>@(device.Gateway??"-")</dd><dt>DNS</dt><dd>@(device.PrimaryDns??"-") / @(device.SecondaryDns??"-")</dd><dt>Sistema</dt><dd>@(device.OperatingSystem??"-")</dd><dt>Ubicación</dt><dd>@(device.Location??"-")</dd></dl></section></div>
- <div class="col-lg-8"><section class="panel"><h2>Métricas recientes</h2><div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>CPU</th><th>RAM</th><th>Disco</th><th>Temp.</th><th>Tráfico</th></tr></thead><tbody>@foreach(var m in metrics){<tr><td>@m.RegisteredAtUtc.ToString("g")</td><td>@m.CpuPercent%</td><td>@m.MemoryPercent%</td><td>@m.DiskPercent%</td><td>@(m.TemperatureCelsius?.ToString("0.##")??"-")</td><td>@(m.NetworkTrafficMbps?.ToString("0.##")??"-")</td></tr>}</tbody></table></div></section></div></div>
- <section class="panel mt-4"><h2>Historial de estado</h2><div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Anterior</th><th>Nuevo</th><th>Motivo</th></tr></thead><tbody>@foreach(var h in history){<tr><td>@h.ChangedAtUtc.ToString("g")</td><td>@DisplayLabels.DeviceStatus(h.PreviousStatus)</td><td>@DisplayLabels.DeviceStatus(h.NewStatus)</td><td>@DisplayLabels.Text(h.Description)</td></tr>}</tbody></table></div></section>
+
+@if (error is not null)
+{
+    <div class="alert alert-danger"><strong>No fue posible cargar el dispositivo.</strong> @error</div>
 }
-@code { [Parameter]public int Id{get;set;} private DeviceDto? device;private IReadOnlyList<MetricDto> metrics=[];private IReadOnlyList<StateHistoryDto> history=[];private string? error;private string? pingResult;protected override Task OnParametersSetAsync()=>Load();private async Task Load(){try{device=await Api.GetAsync<DeviceDto>($"api/devices/{Id}");metrics=await Api.GetAsync<IReadOnlyList<MetricDto>>($"api/metrics?deviceId={Id}&limit=50");history=await Api.GetAsync<IReadOnlyList<StateHistoryDto>>($"api/devices/{Id}/history");}catch(Exception ex){error=ex.Message;}}private async Task Ping(){try{var r=await Api.PostAsync<System.Text.Json.JsonElement>($"api/diagnostics/ping/{Id}");pingResult=r.GetProperty("success").GetBoolean()?$"Respuesta correcta: {r.GetProperty("responseTimeMs").GetDouble():0.##} ms":"Sin respuesta ICMP";await Load();}catch(Exception ex){error=ex.Message;}} }
+else if (device is null)
+{
+    <div class="loading-state"><span class="loading-dot"></span> Cargando información del dispositivo...</div>
+}
+else
+{
+    <section class="panel detail-hero mb-4">
+        <div class="page-heading mb-0">
+            <div><span class="page-eyebrow text-info">Ficha técnica</span><h1>@device.Name</h1><p>@DisplayLabels.DeviceType(device.DeviceType) · <code>@device.IpAddress</code> · <span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></p></div>
+            <div class="detail-hero-actions"><button class="btn btn-light" @onclick="Ping"><AppIcon Name="ping" Size="17" /> Ejecutar ping</button><a class="btn btn-outline-light" href="devices"><AppIcon Name="back" Size="17" /> Volver</a></div>
+        </div>
+    </section>
+
+    @if (pingResult is not null) { <div class="alert alert-info"><AppIcon Name="activity" Size="16" /> @pingResult</div> }
+
+    @if (LatestMetric is not null)
+    {
+        <div class="row g-3 mb-4">
+            @MetricSummary("CPU", LatestMetric.CpuPercent, "cpu")
+            @MetricSummary("Memoria RAM", LatestMetric.MemoryPercent, "memory")
+            @MetricSummary("Almacenamiento", LatestMetric.DiskPercent, "disk")
+            <div class="col-sm-6 col-xl-3"><div class="metric-card h-100"><div class="metric-card-head"><span>Tráfico de red</span><span class="metric-icon"><AppIcon Name="network" /></span></div><strong>@(LatestMetric.NetworkTrafficMbps?.ToString("0.##") ?? "-")</strong><small>Mbps · última muestra</small></div></div>
+        </div>
+    }
+
+    <div class="row g-4">
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="network" Size="18" /></span><div><h2>Configuración de red</h2><p class="panel-subtitle">Parámetros de conectividad</p></div></div></div>
+                <dl class="info-list"><div class="info-row"><dt>Dirección IP</dt><dd><code>@device.IpAddress</code></dd></div><div class="info-row"><dt>Máscara</dt><dd>@device.SubnetMask</dd></div><div class="info-row"><dt>Puerta de enlace</dt><dd>@(device.Gateway ?? "No configurada")</dd></div><div class="info-row"><dt>DNS primario</dt><dd>@(device.PrimaryDns ?? "No configurado")</dd></div><div class="info-row"><dt>DNS secundario</dt><dd>@(device.SecondaryDns ?? "No configurado")</dd></div><div class="info-row"><dt>Dirección MAC</dt><dd>@(device.MacAddress ?? "Sin datos")</dd></div></dl>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="server" Size="18" /></span><div><h2>Información del equipo</h2><p class="panel-subtitle">Identidad y plataforma</p></div></div></div>
+                <dl class="info-list"><div class="info-row"><dt>Sistema operativo</dt><dd>@(device.OperatingSystem ?? "Sin datos")</dd></div><div class="info-row"><dt>Fabricante</dt><dd>@(device.Manufacturer ?? "Sin datos")</dd></div><div class="info-row"><dt>Modelo</dt><dd>@(device.Model ?? "Sin datos")</dd></div><div class="info-row"><dt>Ubicación</dt><dd>@(device.Location ?? "Sin ubicación")</dd></div><div class="info-row"><dt>Registrado</dt><dd>@FormatDate(device.RegisteredAtUtc)</dd></div><div class="info-row"><dt>Monitoreo</dt><dd><span class="status @(device.MonitoringEnabled ? "active" : "inactive")">@(device.MonitoringEnabled ? "Habilitado" : "Deshabilitado")</span></dd></div></dl>
+            </section>
+        </div>
+        <div class="col-xl-4">
+            <section class="panel h-100">
+                <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="activity" Size="18" /></span><div><h2>Estado operativo</h2><p class="panel-subtitle">Última comprobación ICMP</p></div></div></div>
+                <dl class="info-list"><div class="info-row"><dt>Estado actual</dt><dd><span class="status @device.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(device.Status)</span></dd></div><div class="info-row"><dt>Último ping</dt><dd>@FormatDate(device.LastPingAtUtc)</dd></div><div class="info-row"><dt>Tiempo de respuesta</dt><dd>@(device.LastResponseTimeMs?.ToString("0.##") ?? "-") ms</dd></div><div class="info-row"><dt>Fallos consecutivos</dt><dd>@device.ConsecutivePingFailures</dd></div><div class="info-row"><dt>Descripción</dt><dd>@(device.Description ?? "Sin descripción")</dd></div></dl>
+            </section>
+        </div>
+    </div>
+
+    <section class="panel mt-4">
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="activity" Size="18" /></span><div><h2>Métricas recientes</h2><p class="panel-subtitle">Rendimiento reportado por el agente</p></div></div><span class="panel-count">@metrics.Count muestras</span></div>
+        @if (metrics.Count == 0) { <div class="empty"><span class="empty-icon"><AppIcon Name="activity" /></span>No hay métricas disponibles.</div> }
+        else { <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>CPU</th><th>Memoria</th><th>Disco</th><th>Temperatura</th><th>Tráfico</th><th>Respuesta</th></tr></thead><tbody>@foreach (var m in metrics){<tr><td>@FormatDate(m.RegisteredAtUtc)</td><td>@Percent(m.CpuPercent)</td><td>@Percent(m.MemoryPercent)</td><td>@Percent(m.DiskPercent)</td><td>@(m.TemperatureCelsius?.ToString("0.##") ?? "-") °C</td><td>@(m.NetworkTrafficMbps?.ToString("0.##") ?? "-") Mbps</td><td>@m.ResponseTimeMs.ToString("0.##") ms</td></tr>}</tbody></table></div> }
+    </section>
+
+    <section class="panel mt-4">
+        <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="clock" Size="18" /></span><div><h2>Historial de estado</h2><p class="panel-subtitle">Transiciones registradas por el monitoreo</p></div></div><span class="panel-count">@history.Count cambios</span></div>
+        @if (history.Count == 0) { <div class="empty"><span class="empty-icon"><AppIcon Name="clock" /></span>No hay cambios de estado registrados.</div> }
+        else { <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Estado anterior</th><th>Estado nuevo</th><th>Motivo</th></tr></thead><tbody>@foreach (var h in history){<tr><td>@FormatDate(h.ChangedAtUtc)</td><td><span class="status @h.PreviousStatus.ToLowerInvariant()">@DisplayLabels.DeviceStatus(h.PreviousStatus)</span></td><td><span class="status @h.NewStatus.ToLowerInvariant()">@DisplayLabels.DeviceStatus(h.NewStatus)</span></td><td>@DisplayLabels.Text(h.Description)</td></tr>}</tbody></table></div> }
+    </section>
+}
+
+@code {
+    [Parameter] public int Id { get; set; }
+    private DeviceDto? device;
+    private IReadOnlyList<MetricDto> metrics = [];
+    private IReadOnlyList<StateHistoryDto> history = [];
+    private string? error;
+    private string? pingResult;
+    private MetricDto? LatestMetric => metrics.FirstOrDefault();
+
+    protected override Task OnParametersSetAsync() => Load();
+    private async Task Load() { try { error = null; device = await Api.GetAsync<DeviceDto>($"api/devices/{Id}"); metrics = await Api.GetAsync<IReadOnlyList<MetricDto>>($"api/metrics?deviceId={Id}&limit=50"); history = await Api.GetAsync<IReadOnlyList<StateHistoryDto>>($"api/devices/{Id}/history"); } catch (Exception ex) { error = ex.Message; } }
+    private async Task Ping() { try { var result = await Api.PostAsync<System.Text.Json.JsonElement>($"api/diagnostics/ping/{Id}"); pingResult = result.GetProperty("success").GetBoolean() ? $"Respuesta correcta: {result.GetProperty("responseTimeMs").GetDouble():0.##} ms" : "El dispositivo no respondió a la solicitud ICMP."; await Load(); } catch (Exception ex) { error = ex.Message; } }
+    private static string FormatDate(DateTime? value) => value?.ToString("dd/MM/yyyy HH:mm") ?? "Sin datos";
+    private static RenderFragment Percent(decimal value) => builder => { builder.OpenElement(0, "div"); builder.AddContent(1, $"{value:0.##}%"); builder.OpenElement(2, "div"); builder.AddAttribute(3, "class", $"progress-thin {(value >= 90 ? "danger" : value >= 75 ? "warning" : "")}"); builder.OpenElement(4, "span"); builder.AddAttribute(5, "style", $"width:{Math.Clamp(value, 0, 100)}%"); builder.CloseElement(); builder.CloseElement(); builder.CloseElement(); };
+    private static RenderFragment MetricSummary(string label, decimal value, string icon) => builder => { builder.OpenElement(0, "div"); builder.AddAttribute(1, "class", "col-sm-6 col-xl-3"); builder.OpenElement(2, "div"); builder.AddAttribute(3, "class", $"metric-card h-100 {(value >= 90 ? "danger" : value >= 75 ? "warning" : "success")}"); builder.OpenElement(4, "div"); builder.AddAttribute(5, "class", "metric-card-head"); builder.OpenElement(6, "span"); builder.AddContent(7, label); builder.CloseElement(); builder.OpenElement(8, "span"); builder.AddAttribute(9, "class", "metric-icon"); builder.OpenComponent<AppIcon>(10); builder.AddAttribute(11, "Name", icon); builder.CloseComponent(); builder.CloseElement(); builder.CloseElement(); builder.OpenElement(12, "strong"); builder.AddContent(13, $"{value:0.##}%"); builder.CloseElement(); builder.OpenElement(14, "small"); builder.AddContent(15, "Última muestra recibida"); builder.CloseElement(); builder.CloseElement(); builder.CloseElement(); };
+}

@@ -4,12 +4,29 @@
     <aside class="sidebar"><NavMenu /></aside>
     <main class="main-panel">
         <header class="topbar">
-            <div><strong>NetWatch NMS</strong><span class="text-muted ms-2">Centro de monitoreo</span></div>
+            <div class="topbar-context">
+                <span class="system-pulse"></span>
+                <div><strong>Centro de operaciones</strong><small>Monitoreo de infraestructura en tiempo real</small></div>
+            </div>
             <AuthorizeView>
-                <Authorized Context="auth"><span>@auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value · @DisplayLabels.Role(auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)</span></Authorized>
+                <Authorized Context="auth">
+                    <div class="user-summary">
+                        <span class="user-avatar">@Initials(auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value)</span>
+                        <span><strong>@auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value</strong><small>@DisplayLabels.Role(auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)</small></span>
+                    </div>
+                </Authorized>
             </AuthorizeView>
         </header>
         <article class="content">@Body</article>
     </main>
 </div>
 <div id="blazor-error-ui">Ocurrió un error inesperado. <a href="" class="reload">Recargar</a><a class="dismiss">×</a></div>
+
+@code {
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "NW";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(x => char.ToUpperInvariant(x[0])));
+    }
+}

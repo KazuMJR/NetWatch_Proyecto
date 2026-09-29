@@ -1,0 +1,54 @@
+@page "/events-alerts"
+@attribute [Authorize]
+@inject NetWatchApiClient Api
+
+<PageTitle>Eventos y alertas | NetWatch</PageTitle>
+<div class="page-heading"><div><h1>Eventos y alertas</h1><p>Trazabilidad de conectividad y rendimiento</p></div><button class="btn btn-outline-primary" @onclick="Load">Actualizar</button></div>
+@if(error is not null){<div class="alert alert-danger">@error</div>}
+
+<section class="panel mb-4">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-5"><label class="form-label">Dispositivo</label><select class="form-select" @bind="deviceId"><option value="">Todos</option>@foreach(var device in devices){<option value="@device.Id">@device.Name</option>}</select></div>
+        <div class="col-md-4"><label class="form-label">Estado de alerta</label><select class="form-select" @bind="alertStatus"><option value="">Todos</option><option value="Pending">Pendiente</option><option value="Attended">Atendida</option></select></div>
+        <div class="col-md-3"><button class="btn btn-primary" @onclick="Load">Aplicar filtros</button></div>
+    </div>
+</section>
+
+<section class="panel mb-4"><h2>Alertas</h2><div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Alerta</th><th>Nivel</th><th>Estado</th><th></th></tr></thead><tbody>@foreach(var a in alerts){<tr><td>@a.GeneratedAtUtc.ToString("g")</td><td><a href="devices/@a.DeviceId">@a.DeviceName</a></td><td><strong>@DisplayLabels.Text(a.Title)</strong><div class="small text-muted">@DisplayLabels.Text(a.Description)</div></td><td>@DisplayLabels.Severity(a.Level)</td><td>@DisplayLabels.AlertStatus(a.Status)</td><td>@if(a.Status=="Pending"){<button class="btn btn-sm btn-outline-success" @onclick="()=>Attend(a.Id)">Marcar atendida</button>}</td></tr>}</tbody></table></div></section>
+<section class="panel"><h2>Historial de eventos</h2><div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Tipo</th><th>Severidad</th><th>Descripción</th></tr></thead><tbody>@foreach(var e in events){<tr><td>@e.OccurredAtUtc.ToString("g")</td><td>@e.DeviceName</td><td>@DisplayLabels.EventType(e.EventType)</td><td>@DisplayLabels.Severity(e.Severity)</td><td>@DisplayLabels.Text(e.Description)</td></tr>}</tbody></table></div></section>
+
+@code {
+    private IReadOnlyList<DeviceDto> devices = [];
+    private IReadOnlyList<AlertDto> alerts = [];
+    private IReadOnlyList<EventDto> events = [];
+    private string deviceId = "";
+    private string alertStatus = "";
+    private string? error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try { devices = await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices"); await Load(); }
+        catch(Exception ex) { error = ex.Message; }
+    }
+
+    private async Task Load()
+    {
+        try
+        {
+            error = null;
+            var deviceQuery = string.IsNullOrWhiteSpace(deviceId) ? "" : $"&deviceId={deviceId}";
+            var statusQuery = string.IsNullOrWhiteSpace(alertStatus) ? "" : $"&status={alertStatus}";
+            var alertsTask = Api.GetAsync<IReadOnlyList<AlertDto>>($"api/alerts?limit=500{deviceQuery}{statusQuery}");
+            var eventsTask = Api.GetAsync<IReadOnlyList<EventDto>>($"api/events?limit=500{deviceQuery}");
+            await Task.WhenAll(alertsTask, eventsTask); alerts = await alertsTask; events = await eventsTask;
+        }
+        catch(Exception ex) { error = ex.Message; }
+    }
+
+    private async Task Attend(long id)
+    {
+        try { await Api.PutAsync($"api/alerts/{id}/attend"); await Load(); }
+        catch(Exception ex) { error = ex.Message; }
+    }
+
+}

@@ -35,7 +35,7 @@ Set-ExecutionPolicy -Scope Process Bypass
 
 Abra `http://localhost:8080` e ingrese con el usuario `admin` y la clave configurada. La API responde en `http://localhost:8081/health`. La primera ejecución crea la base, aplica la migración y carga roles, tipos de dispositivo y usuarios iniciales.
 
-> No utilice las credenciales de `appsettings.Development.json` fuera de una computadora local aislada. El despliegue con Docker usa exclusivamente los secretos de `.env`.
+> `appsettings.Development.json` no contiene contraseñas utilizables. Configure las credenciales mediante variables de entorno o use el despliegue con Docker, que obtiene los secretos exclusivamente de `.env`.
 
 ## Verificación
 

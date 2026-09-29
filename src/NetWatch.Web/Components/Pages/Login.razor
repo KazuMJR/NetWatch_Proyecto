@@ -1,0 +1,23 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<PageTitle>Iniciar sesión | NetWatch</PageTitle>
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-logo">NW</div><h1>NetWatch NMS</h1><p class="text-muted">Monitoreo y administración de red</p>
+    @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert alert-danger">@error</div> }
+    <EditForm Model="model" OnValidSubmit="SubmitLogin"><DataAnnotationsValidator />
+      <div class="mb-3"><label class="form-label">Usuario</label><InputText class="form-control" @bind-Value="model.Username" /><ValidationMessage For="() => model.Username" /></div>
+      <div class="mb-3"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" @bind-Value="model.Password" /><ValidationMessage For="() => model.Password" /></div>
+      <button class="btn btn-primary w-100" disabled="@busy">@(busy ? "Validando..." : "Ingresar")</button>
+    </EditForm>
+  </div>
+</div>
+
+@code {
+  [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+  private readonly LoginModel model = new(); private string? error; private bool busy;
+  private async Task SubmitLogin() { busy=true; error=null; try { await Auth.LoginAsync(model); Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "/" : "/" + ReturnUrl); } catch(Exception ex){ error=ex.Message; } finally{busy=false;} }
+}

@@ -1,0 +1,18 @@
+@inject AuthService Auth
+@inject NavigationManager Navigation
+
+<div class="brand"><span class="brand-mark">NW</span><div><b>NetWatch</b><small>Gestión de red</small></div></div>
+<nav class="nav flex-column">
+    <NavLink class="nav-link" href="" Match="NavLinkMatch.All">Panel principal</NavLink>
+    <NavLink class="nav-link" href="devices">Dispositivos</NavLink>
+    <NavLink class="nav-link" href="events-alerts">Eventos y alertas</NavLink>
+    <NavLink class="nav-link" href="reports">Reportes</NavLink>
+    <AuthorizeView Roles="Administrator"><NavLink class="nav-link" href="users">Usuarios</NavLink></AuthorizeView>
+</nav>
+<AuthorizeView>
+    <Authorized><button class="btn btn-outline-light btn-sm logout" @onclick="Logout">Cerrar sesión</button></Authorized>
+</AuthorizeView>
+
+@code {
+    private async Task Logout() { await Auth.LogoutAsync(); Navigation.NavigateTo("/login", true); }
+}

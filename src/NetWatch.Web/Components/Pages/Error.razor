@@ -1,0 +1,27 @@
+﻿@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Error | NetWatch</PageTitle>
+
+<h1 class="text-danger">Ocurrió un error.</h1>
+<h2 class="text-danger">No fue posible procesar la solicitud.</h2>
+
+@if (ShowRequestId)
+{
+    <p>
+        <strong>Identificador de solicitud:</strong> <code>@RequestId</code>
+    </p>
+}
+
+<p>Vuelva a intentarlo. Si el problema continúa, consulte los registros de NetWatch con el identificador mostrado.</p>
+
+@code{
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

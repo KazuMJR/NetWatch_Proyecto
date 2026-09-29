@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+<div class="app-shell">
+    <aside class="sidebar"><NavMenu /></aside>
+    <main class="main-panel">
+        <header class="topbar">
+            <div><strong>NetWatch NMS</strong><span class="text-muted ms-2">Centro de monitoreo</span></div>
+            <AuthorizeView>
+                <Authorized Context="auth"><span>@auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value · @DisplayLabels.Role(auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)</span></Authorized>
+            </AuthorizeView>
+        </header>
+        <article class="content">@Body</article>
+    </main>
+</div>
+<div id="blazor-error-ui">Ocurrió un error inesperado. <a href="" class="reload">Recargar</a><a class="dismiss">×</a></div>

@@ -45,4 +45,15 @@ public sealed record EventDto(long Id, int DeviceId, string DeviceName, string E
 public sealed record AlertDto(long Id, int DeviceId, string DeviceName, string Title, string Description, string Level, string Status, DateTime GeneratedAtUtc, DateTime? AttendedAtUtc);
 public sealed record StateHistoryDto(long Id, int DeviceId, string PreviousStatus, string NewStatus, string? Description, DateTime ChangedAtUtc);
 public sealed record DashboardDto(int Total, int Active, int Warning, int Disconnected, int Inactive, IReadOnlyList<AlertDto> RecentAlerts, IReadOnlyList<MetricDto> RecentMetrics);
-public sealed record ReportRowDto(string Category, int DeviceId, string DeviceName, DateTime DateUtc, string Detail, decimal? Value1, decimal? Value2, decimal? Value3);
+public sealed record ReportRowDto(
+    string Category,
+    int DeviceId,
+    string DeviceName,
+    DateTime DateUtc,
+    string Detail,
+    decimal? CpuPercent,
+    decimal? MemoryPercent,
+    decimal? DiskPercent,
+    decimal? TemperatureCelsius,
+    decimal? NetworkTrafficMbps,
+    decimal? ResponseTimeMs);

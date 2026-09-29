@@ -5,35 +5,159 @@
 
 <PageTitle>Reportes | NetWatch</PageTitle>
 
-<div class="page-heading">
-    <div><span class="page-eyebrow">Análisis histórico</span><h1>Reportes</h1><p>Consulte, filtre y exporte la información recopilada por NetWatch.</p></div>
-    <div class="page-actions"><button class="btn btn-outline-primary" @onclick="Download"><AppIcon Name="download" Size="17" /> Exportar CSV</button></div>
+<div class="page-heading report-page-heading">
+    <div>
+        <span class="page-eyebrow">Análisis histórico</span>
+        <h1>Reportes</h1>
+        <p>Consulte la información por periodo y descargue todos los resultados del filtro aplicado.</p>
+    </div>
+    <div class="page-actions">
+        <button class="export-action" @onclick="Download" disabled="@(rows.Count == 0 || isLoading || isExporting)">
+            <span class="export-action-icon"><AppIcon Name="download" Size="20" /></span>
+            <span class="export-action-copy">
+                <strong>@(isExporting ? "Preparando archivo..." : "Exportar resultados")</strong>
+                <small>@(rows.Count == 0 ? "Aplique un filtro para descargar" : $"{rows.Count:N0} registros filtrados")</small>
+            </span>
+        </button>
+    </div>
 </div>
 
-@if (error is not null) { <div class="alert alert-danger"><strong>No fue posible generar el reporte.</strong> @error</div> }
+@if (error is not null)
+{
+    <div class="alert alert-danger"><strong>No fue posible generar el reporte.</strong> @error</div>
+}
+@if (notice is not null)
+{
+    <div class="alert alert-success"><AppIcon Name="check" Size="16" /> @notice</div>
+}
 
-<section class="panel filter-panel mb-4">
-    <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Parámetros del reporte</div>
-    <div class="row g-3 align-items-end">
-        <div class="col-lg-3 col-md-6"><label class="form-label">Tipo de información</label><select class="form-select" @bind="type"><option value="metrics">Métricas de rendimiento</option><option value="events">Eventos del sistema</option><option value="alerts">Alertas generadas</option><option value="states">Cambios de estado</option></select></div>
-        <div class="col-lg-3 col-md-6"><label class="form-label">Dispositivo</label><select class="form-select" @bind="deviceId"><option value="">Todos los dispositivos</option>@foreach (var device in devices){<option value="@device.Id">@device.Name</option>}</select></div>
-        <div class="col-lg-2 col-md-4"><label class="form-label">Fecha inicial</label><InputDate class="form-control" @bind-Value="from" /></div>
-        <div class="col-lg-2 col-md-4"><label class="form-label">Fecha final</label><InputDate class="form-control" @bind-Value="to" /></div>
-        <div class="col-lg-2 col-md-4"><button class="btn btn-primary w-100" @onclick="Generate"><AppIcon Name="reports" Size="16" /> Generar reporte</button></div>
+<section class="panel report-filter-panel mb-4">
+    <div class="report-filter-header">
+        <div>
+            <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Filtros del reporte</div>
+            <p>Seleccione los criterios que desea consultar. La fecha final incluye el día completo.</p>
+        </div>
+        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetFilters" disabled="@isLoading">Restablecer filtros</button>
+    </div>
+
+    <div class="report-filter-grid">
+        <div class="filter-field filter-type">
+            <label class="form-label">Tipo de información</label>
+            <select class="form-select" @bind="type">
+                <option value="metrics">Métricas de rendimiento</option>
+                <option value="events">Eventos del sistema</option>
+                <option value="alerts">Alertas generadas</option>
+                <option value="states">Cambios de estado</option>
+            </select>
+        </div>
+        <div class="filter-field filter-device">
+            <label class="form-label">Dispositivo</label>
+            <select class="form-select" @bind="deviceId">
+                <option value="">Todos los dispositivos</option>
+                @foreach (var device in devices)
+                {
+                    <option value="@device.Id">@device.Name · @device.IpAddress</option>
+                }
+            </select>
+        </div>
+        <div class="filter-field">
+            <label class="form-label">Desde</label>
+            <InputDate class="form-control" @bind-Value="from" />
+        </div>
+        <div class="filter-field">
+            <label class="form-label">Hasta</label>
+            <InputDate class="form-control" @bind-Value="to" />
+        </div>
+        <div class="filter-actions">
+            <button class="btn btn-primary" @onclick="Generate" disabled="@isLoading">
+                <AppIcon Name="filter" Size="16" /> @(isLoading ? "Consultando..." : "Aplicar filtros")
+            </button>
+        </div>
     </div>
 </section>
 
-<div class="summary-strip mb-3"><span class="summary-pill">Tipo <strong>@TypeLabel(type)</strong></span><span class="summary-pill">Periodo <strong>@from?.ToString("dd/MM/yyyy") – @to?.ToString("dd/MM/yyyy")</strong></span><span class="summary-pill">Resultados <strong>@rows.Count</strong></span></div>
+<div class="report-summary-grid mb-4">
+    <div class="report-summary-card">
+        <span class="report-summary-icon"><AppIcon Name="reports" Size="18" /></span>
+        <span><small>Contenido</small><strong>@TypeLabel(appliedType)</strong></span>
+    </div>
+    <div class="report-summary-card">
+        <span class="report-summary-icon"><AppIcon Name="devices" Size="18" /></span>
+        <span><small>Dispositivo</small><strong>@AppliedDeviceLabel</strong></span>
+    </div>
+    <div class="report-summary-card">
+        <span class="report-summary-icon"><AppIcon Name="clock" Size="18" /></span>
+        <span><small>Periodo aplicado</small><strong>@AppliedPeriod</strong></span>
+    </div>
+    <div class="report-summary-card report-summary-total">
+        <span class="report-summary-icon"><AppIcon Name="check" Size="18" /></span>
+        <span><small>Resultados completos</small><strong>@rows.Count.ToString("N0") registros</strong></span>
+    </div>
+</div>
 
-<section class="panel">
-    <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="reports" Size="18" /></span><div><h2>Resultados del reporte</h2><p class="panel-subtitle">Información ordenada cronológicamente</p></div></div><span class="panel-count">@rows.Count filas</span></div>
-    @if (rows.Count == 0)
+<section class="panel report-results-panel">
+    <div class="panel-header report-results-header">
+        <div class="panel-title">
+            <span class="panel-title-icon"><AppIcon Name="reports" Size="18" /></span>
+            <div>
+                <h2>Resultados del reporte</h2>
+                <p class="panel-subtitle">Datos ordenados del registro más reciente al más antiguo</p>
+            </div>
+        </div>
+        <div class="results-export-hint"><AppIcon Name="download" Size="15" /> La exportación incluye todas las filas mostradas</div>
+    </div>
+
+    @if (isLoading)
     {
-        <div class="empty"><span class="empty-icon"><AppIcon Name="reports" /></span>No se encontraron datos en el periodo seleccionado.</div>
+        <div class="report-loading"><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Consultando información...</div>
+    }
+    else if (rows.Count == 0)
+    {
+        <div class="empty"><span class="empty-icon"><AppIcon Name="reports" /></span>No se encontraron datos con los filtros seleccionados.</div>
+    }
+    else if (appliedType == "metrics")
+    {
+        <div class="table-responsive report-table-wrap">
+            <table class="table report-table metric-report-table">
+                <thead>
+                    <tr><th>Fecha UTC</th><th>Dispositivo</th><th>CPU</th><th>RAM</th><th>Disco</th><th>Temperatura</th><th>Tráfico</th><th>Respuesta</th></tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td><span class="report-date">@row.DateUtc.ToString("dd/MM/yyyy")</span><small>@row.DateUtc.ToString("HH:mm:ss") UTC</small></td>
+                            <td><a class="table-primary-link" href="devices/@row.DeviceId">@row.DeviceName</a><small>Equipo #@row.DeviceId</small></td>
+                            <td><span class="metric-value cpu">@Metric(row.CpuPercent, "%")</span></td>
+                            <td><span class="metric-value memory">@Metric(row.MemoryPercent, "%")</span></td>
+                            <td><span class="metric-value disk">@Metric(row.DiskPercent, "%")</span></td>
+                            <td>@Metric(row.TemperatureCelsius, " °C")</td>
+                            <td>@Metric(row.NetworkTrafficMbps, " Mbps")</td>
+                            <td>@Metric(row.ResponseTimeMs, " ms")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
     else
     {
-        <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Categoría</th><th>Detalle</th><th>Valores registrados</th></tr></thead><tbody>@foreach (var row in rows){<tr><td>@row.DateUtc.ToString("dd/MM/yyyy HH:mm")</td><td><a class="table-primary-link" href="devices/@row.DeviceId">@row.DeviceName</a></td><td><span class="status info">@DisplayLabels.Category(row.Category)</span></td><td>@DisplayLabels.Text(row.Detail)</td><td>@Values(row)</td></tr>}</tbody></table></div>
+        <div class="table-responsive report-table-wrap">
+            <table class="table report-table">
+                <thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Categoría</th><th>Detalle registrado</th></tr></thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td><span class="report-date">@row.DateUtc.ToString("dd/MM/yyyy")</span><small>@row.DateUtc.ToString("HH:mm:ss") UTC</small></td>
+                            <td><a class="table-primary-link" href="devices/@row.DeviceId">@row.DeviceName</a><small>Equipo #@row.DeviceId</small></td>
+                            <td><span class="status info">@DisplayLabels.Category(row.Category)</span></td>
+                            <td class="report-detail">@DisplayLabels.Text(row.Detail)</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
     }
 </section>
 
@@ -43,14 +167,118 @@
     private string type = "metrics";
     private string deviceId = "";
     private DateTime? from = DateTime.UtcNow.Date.AddDays(-7);
-    private DateTime? to = DateTime.UtcNow.Date.AddDays(1);
+    private DateTime? to = DateTime.UtcNow.Date;
+    private string appliedType = "metrics";
+    private string appliedDeviceId = "";
+    private DateTime? appliedFrom = DateTime.UtcNow.Date.AddDays(-7);
+    private DateTime? appliedTo = DateTime.UtcNow.Date;
     private string? error;
+    private string? notice;
+    private bool isLoading;
+    private bool isExporting;
 
-    protected override async Task OnInitializedAsync() { try { devices = await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices"); await Generate(); } catch (Exception ex) { error = ex.Message; } }
-    private static string Utc(DateTime? value) => value.HasValue ? DateTime.SpecifyKind(value.Value, DateTimeKind.Utc).ToString("O") : "";
-    private string Query(string path) { var device = string.IsNullOrWhiteSpace(deviceId) ? "" : $"&deviceId={deviceId}"; return $"{path}?type={type}{device}&fromUtc={Uri.EscapeDataString(Utc(from))}&toUtc={Uri.EscapeDataString(Utc(to))}"; }
-    private async Task Generate() { try { error = null; rows = await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports")); } catch (Exception ex) { error = ex.Message; } }
-    private async Task Download() { try { error = null; var file = await Api.DownloadAsync(Query("api/reports/csv")); await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data)); } catch (Exception ex) { error = ex.Message; } }
-    private static string TypeLabel(string value) => value switch { "metrics" => "Métricas", "events" => "Eventos", "alerts" => "Alertas", "states" => "Estados", _ => value };
-    private static string Values(ReportRowDto row) => row.Category == "Metric" ? $"CPU {row.Value1:0.##}% · RAM {row.Value2:0.##}% · Disco {row.Value3:0.##}%" : row.Value1.HasValue || row.Value2.HasValue || row.Value3.HasValue ? $"{row.Value1:0.##} {row.Value2:0.##} {row.Value3:0.##}".Trim() : "—";
+    private string AppliedDeviceLabel => string.IsNullOrWhiteSpace(appliedDeviceId)
+        ? "Todos los dispositivos"
+        : devices.FirstOrDefault(x => x.Id.ToString() == appliedDeviceId)?.Name ?? $"Equipo #{appliedDeviceId}";
+    private string AppliedPeriod => $"{appliedFrom:dd/MM/yyyy} – {appliedTo:dd/MM/yyyy}";
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            devices = await Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");
+            await Generate();
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+    }
+
+    private static string UtcStart(DateTime value) => DateTime.SpecifyKind(value.Date, DateTimeKind.Utc).ToString("O");
+    private static string UtcEnd(DateTime value) => DateTime.SpecifyKind(value.Date.AddDays(1).AddTicks(-1), DateTimeKind.Utc).ToString("O");
+
+    private static string Query(string path, string selectedType, string selectedDeviceId, DateTime selectedFrom, DateTime selectedTo)
+    {
+        var device = string.IsNullOrWhiteSpace(selectedDeviceId) ? "" : $"&deviceId={selectedDeviceId}";
+        return $"{path}?type={selectedType}{device}&fromUtc={Uri.EscapeDataString(UtcStart(selectedFrom))}&toUtc={Uri.EscapeDataString(UtcEnd(selectedTo))}";
+    }
+
+    private async Task Generate()
+    {
+        if (!from.HasValue || !to.HasValue)
+        {
+            error = "Seleccione la fecha inicial y la fecha final.";
+            return;
+        }
+        if (from.Value.Date > to.Value.Date)
+        {
+            error = "La fecha inicial no puede ser posterior a la fecha final.";
+            return;
+        }
+
+        try
+        {
+            isLoading = true;
+            error = null;
+            notice = null;
+            var result = await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports", type, deviceId, from.Value, to.Value));
+            rows = result;
+            appliedType = type;
+            appliedDeviceId = deviceId;
+            appliedFrom = from.Value.Date;
+            appliedTo = to.Value.Date;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task ResetFilters()
+    {
+        type = "metrics";
+        deviceId = "";
+        from = DateTime.UtcNow.Date.AddDays(-7);
+        to = DateTime.UtcNow.Date;
+        await Generate();
+    }
+
+    private async Task Download()
+    {
+        if (rows.Count == 0 || !appliedFrom.HasValue || !appliedTo.HasValue) return;
+
+        try
+        {
+            isExporting = true;
+            error = null;
+            notice = null;
+            var file = await Api.DownloadAsync(Query("api/reports/csv", appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
+            await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data));
+            notice = $"Se exportaron {rows.Count:N0} registros con los filtros aplicados.";
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+        }
+        finally
+        {
+            isExporting = false;
+        }
+    }
+
+    private static string TypeLabel(string value) => value switch
+    {
+        "metrics" => "Métricas de rendimiento",
+        "events" => "Eventos del sistema",
+        "alerts" => "Alertas generadas",
+        "states" => "Cambios de estado",
+        _ => value
+    };
+
+    private static string Metric(decimal? value, string suffix) => value.HasValue ? $"{value:0.##}{suffix}" : "—";
 }

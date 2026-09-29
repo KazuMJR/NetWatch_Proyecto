@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -121,8 +122,8 @@ public sealed class RequirementsTests
     [Fact(DisplayName = "CP-013 report respects device and date filters")]
     public async Task CP013_ReportFilters()
     {
-        await using var db = CreateDb(); var d1 = Device(1); var d2 = Device(2, "192.168.56.11"); db.Devices.AddRange(d1, d2); db.Metrics.AddRange(new Metric { Device = d1, CpuPercent = 1, MemoryPercent = 2, DiskPercent = 3, ResponseTimeMs = 1, RegisteredAtUtc = DateTime.UtcNow }, new Metric { Device = d2, CpuPercent = 4, MemoryPercent = 5, DiskPercent = 6, ResponseTimeMs = 1, RegisteredAtUtc = DateTime.UtcNow }); await db.SaveChangesAsync();
-        var rows = await new ReportsController(db).Get("metrics", 1, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default); Assert.Single(rows); Assert.Equal(1, rows[0].DeviceId);
+        await using var db = CreateDb(); var d1 = Device(1); var d2 = Device(2, "192.168.56.11"); db.Devices.AddRange(d1, d2); db.Metrics.AddRange(new Metric { Device = d1, CpuPercent = 1, MemoryPercent = 2, DiskPercent = 3, TemperatureCelsius = 40, NetworkTrafficMbps = 5, ResponseTimeMs = 1, RegisteredAtUtc = DateTime.UtcNow }, new Metric { Device = d2, CpuPercent = 4, MemoryPercent = 5, DiskPercent = 6, ResponseTimeMs = 1, RegisteredAtUtc = DateTime.UtcNow }); await db.SaveChangesAsync();
+        var rows = await new ReportsController(db).Get("metrics", 1, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default); Assert.Single(rows); Assert.Equal(1, rows[0].DeviceId); Assert.Equal(40, rows[0].TemperatureCelsius); Assert.Equal(5, rows[0].NetworkTrafficMbps);
     }
 
     [Fact(DisplayName = "CP-014 inactive user cannot sign in")]
@@ -168,5 +169,22 @@ public sealed class RequirementsTests
 
         Assert.Single(await db.Users.ToListAsync());
         Assert.Equal("tecnico", (await db.Users.SingleAsync()).Username);
+    }
+
+    [Fact(DisplayName = "CP-017 CSV export is organized for localized Excel")]
+    public async Task CP017_ExcelFriendlyCsv()
+    {
+        await using var db = CreateDb();
+        var device = Device();
+        db.Devices.Add(device);
+        db.Metrics.Add(new Metric { Device = device, CpuPercent = 1.25m, MemoryPercent = 2.5m, DiskPercent = 3.75m, TemperatureCelsius = 42, NetworkTrafficMbps = 0.5m, ResponseTimeMs = 7.25m, RegisteredAtUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var file = await new ReportsController(db).Csv("metrics", device.Id, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default);
+        var csv = Encoding.UTF8.GetString(file.FileContents);
+
+        Assert.StartsWith("\uFEFFsep=;", csv);
+        Assert.Contains("CPU (%);RAM (%);Disco (%);Temperatura (°C);Tráfico (Mbps);Respuesta (ms)", csv);
+        Assert.Contains(";1.25;2.5;3.75;42;0.5;7.25", csv);
     }
 }

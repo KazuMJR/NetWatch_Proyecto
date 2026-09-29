@@ -66,7 +66,7 @@ public sealed class NetWatchApiClient(IHttpClientFactory factory, ApiAuthenticat
         using var request = await RequestAsync(HttpMethod.Get, uri);
         using var response = await factory.CreateClient("NetWatchAnonymous").SendAsync(request);
         await EnsureSuccessAsync(response);
-        var name = response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? "report.csv";
+        var name = response.Content.Headers.ContentDisposition?.FileNameStar ?? response.Content.Headers.ContentDisposition?.FileName?.Trim('"') ?? "reporte-netwatch.xlsx";
         return (await response.Content.ReadAsByteArrayAsync(), name);
     }
 

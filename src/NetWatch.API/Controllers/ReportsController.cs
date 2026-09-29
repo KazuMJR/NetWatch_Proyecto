@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using NetWatch.API.Contracts;
+using NetWatch.API.Services;
 using NetWatch.Data;
 
 namespace NetWatch.API.Controllers;
@@ -17,11 +18,25 @@ public sealed class ReportsController(NetWatchDbContext db) : ControllerBase
         var from = fromUtc ?? DateTime.UtcNow.AddDays(-7); var to = toUtc ?? DateTime.UtcNow;
         return type.ToLowerInvariant() switch
         {
+            "all" => await AllRows(deviceId, from, to, ct),
             "events" => await EventRows(deviceId, from, to, ct),
             "alerts" => await AlertRows(deviceId, from, to, ct),
             "states" => await StateRows(deviceId, from, to, ct),
             _ => await MetricRows(deviceId, from, to, ct)
         };
+    }
+
+    [HttpGet("excel")]
+    public async Task<FileContentResult> Excel([FromQuery] string type = "metrics", [FromQuery] int? deviceId = null, [FromQuery] DateTime? fromUtc = null, [FromQuery] DateTime? toUtc = null, CancellationToken ct = default)
+    {
+        var from = fromUtc ?? DateTime.UtcNow.AddDays(-7);
+        var to = toUtc ?? DateTime.UtcNow;
+        var rows = await Get(type, deviceId, from, to, ct);
+        var deviceLabel = deviceId.HasValue
+            ? await db.Devices.AsNoTracking().Where(x => x.Id == deviceId.Value).Select(x => x.Name).SingleOrDefaultAsync(ct) ?? $"Equipo #{deviceId.Value}"
+            : "Todos los dispositivos";
+        var workbook = ExcelReportBuilder.Build(rows, type, deviceLabel, from, to, DateTime.UtcNow);
+        return File(workbook, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"netwatch-{TypeLabel(type)}-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx");
     }
 
     [HttpGet("csv")]
@@ -77,6 +92,15 @@ public sealed class ReportsController(NetWatchDbContext db) : ControllerBase
         var items = await q.OrderByDescending(x => x.RegisteredAtUtc).ToListAsync(ct);
         return items.Select(x => new ReportRowDto("Métrica", x.DeviceId, x.Device.Name, x.RegisteredAtUtc, "Métricas de rendimiento recopiladas", x.CpuPercent, x.MemoryPercent, x.DiskPercent, x.TemperatureCelsius, x.NetworkTrafficMbps, x.ResponseTimeMs)).ToList();
     }
+
+    private async Task<IReadOnlyList<ReportRowDto>> AllRows(int? id, DateTime from, DateTime to, CancellationToken ct)
+    {
+        var metrics = await MetricRows(id, from, to, ct);
+        var events = await EventRows(id, from, to, ct);
+        var alerts = await AlertRows(id, from, to, ct);
+        var states = await StateRows(id, from, to, ct);
+        return metrics.Concat(events).Concat(alerts).Concat(states).OrderByDescending(x => x.DateUtc).ToList();
+    }
     private async Task<IReadOnlyList<ReportRowDto>> EventRows(int? id, DateTime from, DateTime to, CancellationToken ct)
     {
         var q = db.Events.AsNoTracking().Include(x => x.Device).Where(x => x.OccurredAtUtc >= from && x.OccurredAtUtc <= to); if (id.HasValue) q = q.Where(x => x.DeviceId == id);
@@ -95,7 +119,7 @@ public sealed class ReportsController(NetWatchDbContext db) : ControllerBase
         var items = await q.OrderByDescending(x => x.ChangedAtUtc).ToListAsync(ct);
         return items.Select(x => new ReportRowDto("Estado", x.DeviceId, x.Device.Name, x.ChangedAtUtc, StatusLabel(x.PreviousStatus.ToString()) + " → " + StatusLabel(x.NewStatus.ToString()) + " | " + TranslateText(x.Description), null, null, null, null, null, null)).ToList();
     }
-    private static string TypeLabel(string type) => type.ToLowerInvariant() switch { "events" => "eventos", "alerts" => "alertas", "states" => "estados", _ => "metricas" };
+    private static string TypeLabel(string type) => type.ToLowerInvariant() switch { "all" => "reporte-completo", "events" => "eventos", "alerts" => "alertas", "states" => "estados", _ => "metricas" };
     private static string StatusLabel(string value) => value switch { "Active" => "Activo", "Inactive" => "Inactivo", "Warning" => "Advertencia", "Disconnected" => "Desconectado", _ => value };
     private static string SeverityLabel(string value) => value switch { "Info" => "Informativa", "Low" => "Baja", "Medium" => "Media", "High" => "Alta", "Warning" => "Advertencia", "Critical" => "Crítica", _ => value };
     private static string AlertStatusLabel(string value) => value switch { "Pending" => "Pendiente", "Attended" => "Atendida", _ => value };

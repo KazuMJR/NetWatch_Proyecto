@@ -6,7 +6,7 @@
 
 <div class="page-heading">
     <div><span class="page-eyebrow">Supervisión operativa</span><h1>Eventos y alertas</h1><p>Trazabilidad de conectividad, rendimiento e incidentes detectados.</p></div>
-    <div class="page-actions"><button class="btn btn-outline-primary" @onclick="Load"><AppIcon Name="refresh" Size="17" /> Actualizar</button></div>
+    <div class="page-actions"><button class="btn btn-soft-primary" @onclick="Load"><AppIcon Name="refresh" Size="17" /> Actualizar datos</button></div>
 </div>
 
 @if (error is not null) { <div class="alert alert-danger"><strong>No fue posible consultar los eventos.</strong> @error</div> }
@@ -38,7 +38,7 @@
         <div class="table-responsive"><table class="table"><thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Alerta</th><th>Nivel</th><th>Estado</th><th>Acción</th></tr></thead><tbody>
         @foreach (var alert in alerts)
         {
-            <tr><td>@FormatDate(alert.GeneratedAtUtc)</td><td><a class="table-primary-link" href="devices/@alert.DeviceId">@alert.DeviceName</a></td><td><strong>@DisplayLabels.Text(alert.Title)</strong><span class="table-meta d-block">@DisplayLabels.Text(alert.Description)</span></td><td><span class="status @alert.Level.ToLowerInvariant()">@DisplayLabels.Severity(alert.Level)</span></td><td><span class="status @alert.Status.ToLowerInvariant()">@DisplayLabels.AlertStatus(alert.Status)</span></td><td>@if (alert.Status == "Pending"){<button class="btn btn-sm btn-outline-success" @onclick="() => Attend(alert.Id)"><AppIcon Name="check" Size="14" /> Marcar atendida</button>}else{<span class="table-meta">@FormatDate(alert.AttendedAtUtc)</span>}</td></tr>
+            <tr><td>@FormatDate(alert.GeneratedAtUtc)</td><td><a class="table-primary-link" href="devices/@alert.DeviceId">@alert.DeviceName</a></td><td><strong>@DisplayLabels.Text(alert.Title)</strong><span class="table-meta d-block">@DisplayLabels.Text(alert.Description)</span></td><td><span class="status @alert.Level.ToLowerInvariant()">@DisplayLabels.Severity(alert.Level)</span></td><td><span class="status @alert.Status.ToLowerInvariant()">@DisplayLabels.AlertStatus(alert.Status)</span></td><td>@if (alert.Status == "Pending"){<button class="btn btn-sm btn-soft-success" @onclick="() => Attend(alert.Id)"><AppIcon Name="check" Size="14" /> Marcar atendida</button>}else{<span class="table-meta">@FormatDate(alert.AttendedAtUtc)</span>}</td></tr>
         }
         </tbody></table></div>
     }

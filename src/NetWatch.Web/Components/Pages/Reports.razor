@@ -15,7 +15,7 @@
         <button class="export-action" @onclick="Download" disabled="@(rows.Count == 0 || isLoading || isExporting)">
             <span class="export-action-icon"><AppIcon Name="download" Size="20" /></span>
             <span class="export-action-copy">
-                <strong>@(isExporting ? "Preparando archivo..." : "Exportar resultados")</strong>
+                <strong>@(isExporting ? "Preparando archivo..." : "Exportar a Excel")</strong>
                 <small>@(rows.Count == 0 ? "Aplique un filtro para descargar" : $"{rows.Count:N0} registros filtrados")</small>
             </span>
         </button>
@@ -37,13 +37,14 @@
             <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Filtros del reporte</div>
             <p>Seleccione los criterios que desea consultar. La fecha final incluye el día completo.</p>
         </div>
-        <button class="btn btn-sm btn-outline-secondary" @onclick="ResetFilters" disabled="@isLoading">Restablecer filtros</button>
+        <button class="btn btn-sm btn-soft-neutral" @onclick="ResetFilters" disabled="@isLoading"><AppIcon Name="refresh" Size="14" /> Restablecer filtros</button>
     </div>
 
     <div class="report-filter-grid">
         <div class="filter-field filter-type">
             <label class="form-label">Tipo de información</label>
             <select class="form-select" @bind="type">
+                <option value="all">Todos los datos</option>
                 <option value="metrics">Métricas de rendimiento</option>
                 <option value="events">Eventos del sistema</option>
                 <option value="alerts">Alertas generadas</option>
@@ -104,7 +105,7 @@
                 <p class="panel-subtitle">Datos ordenados del registro más reciente al más antiguo</p>
             </div>
         </div>
-        <div class="results-export-hint"><AppIcon Name="download" Size="15" /> La exportación incluye todas las filas mostradas</div>
+        <div class="results-export-hint"><AppIcon Name="download" Size="15" /> Excel incluye todas las filas y hojas separadas por categoría</div>
     </div>
 
     @if (isLoading)
@@ -134,6 +135,25 @@
                             <td>@Metric(row.TemperatureCelsius, " °C")</td>
                             <td>@Metric(row.NetworkTrafficMbps, " Mbps")</td>
                             <td>@Metric(row.ResponseTimeMs, " ms")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+    else if (appliedType == "all")
+    {
+        <div class="table-responsive report-table-wrap">
+            <table class="table report-table">
+                <thead><tr><th>Fecha UTC</th><th>Dispositivo</th><th>Categoría</th><th>Resumen del registro</th></tr></thead>
+                <tbody>
+                    @foreach (var row in rows)
+                    {
+                        <tr>
+                            <td><span class="report-date">@row.DateUtc.ToString("dd/MM/yyyy")</span><small>@row.DateUtc.ToString("HH:mm:ss") UTC</small></td>
+                            <td><a class="table-primary-link" href="devices/@row.DeviceId">@row.DeviceName</a><small>Equipo #@row.DeviceId</small></td>
+                            <td><span class="status info">@DisplayLabels.Category(row.Category)</span></td>
+                            <td class="report-detail">@RowSummary(row)</td>
                         </tr>
                     }
                 </tbody>
@@ -257,8 +277,8 @@
             isExporting = true;
             error = null;
             notice = null;
-            var file = await Api.DownloadAsync(Query("api/reports/csv", appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
-            await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data));
+            var file = await Api.DownloadAsync(Query("api/reports/excel", appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
+            await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             notice = $"Se exportaron {rows.Count:N0} registros con los filtros aplicados.";
         }
         catch (Exception ex)
@@ -273,6 +293,7 @@
 
     private static string TypeLabel(string value) => value switch
     {
+        "all" => "Todos los datos",
         "metrics" => "Métricas de rendimiento",
         "events" => "Eventos del sistema",
         "alerts" => "Alertas generadas",
@@ -281,4 +302,7 @@
     };
 
     private static string Metric(decimal? value, string suffix) => value.HasValue ? $"{value:0.##}{suffix}" : "—";
+    private static string RowSummary(ReportRowDto row) => row.Category == "Métrica"
+        ? $"CPU {Metric(row.CpuPercent, "%")} · RAM {Metric(row.MemoryPercent, "%")} · Disco {Metric(row.DiskPercent, "%")} · Respuesta {Metric(row.ResponseTimeMs, " ms")}"
+        : DisplayLabels.Text(row.Detail);
 }

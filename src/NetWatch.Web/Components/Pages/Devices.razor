@@ -41,7 +41,7 @@ else
                     <td>@DisplayLabels.DeviceType(d.DeviceType)</td><td><code>@d.IpAddress</code></td><td><span class="status @d.Status.ToLowerInvariant()">@DisplayLabels.DeviceStatus(d.Status)</span></td>
                     <td><span>@FormatDate(d.LastPingAtUtc)</span><span class="table-meta d-block">@(d.LastResponseTimeMs?.ToString("0.##") ?? "-") ms</span></td>
                     <td><span class="status @(d.MonitoringEnabled ? "active" : "inactive")">@(d.MonitoringEnabled ? "Habilitado" : "Deshabilitado")</span></td>
-                    <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="devices/@d.Id"><AppIcon Name="eye" Size="14" /> Ver</a> <AuthorizeView Roles="Administrator"><a class="btn btn-sm btn-outline-primary" href="devices/@d.Id/edit"><AppIcon Name="edit" Size="14" /> Editar</a><button class="btn btn-sm btn-outline-danger ms-1" @onclick="() => Deactivate(d)"><AppIcon Name="pause" Size="13" /> Desactivar</button></AuthorizeView></td>
+                    <td><div class="table-actions"><a class="btn btn-sm btn-soft-neutral" href="devices/@d.Id"><AppIcon Name="eye" Size="14" /> Ver detalle</a> <AuthorizeView Roles="Administrator"><a class="btn btn-sm btn-soft-primary" href="devices/@d.Id/edit"><AppIcon Name="edit" Size="14" /> Editar</a><button class="btn btn-sm btn-soft-danger" @onclick="() => Deactivate(d)"><AppIcon Name="pause" Size="13" /> Desactivar</button></AuthorizeView></div></td>
                 </tr>
             }
             </tbody></table></div>

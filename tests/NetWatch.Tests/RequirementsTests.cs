@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Reflection;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
@@ -186,5 +187,63 @@ public sealed class RequirementsTests
         Assert.StartsWith("\uFEFFsep=;", csv);
         Assert.Contains("CPU (%);RAM (%);Disco (%);Temperatura (°C);Tráfico (Mbps);Respuesta (ms)", csv);
         Assert.Contains(";1.25;2.5;3.75;42;0.5;7.25", csv);
+    }
+
+    [Fact(DisplayName = "CP-018 complete report combines every information category")]
+    public async Task CP018_CompleteReport()
+    {
+        await using var db = CreateDb();
+        var device = Device();
+        db.Devices.Add(device);
+        db.Metrics.Add(new Metric { Device = device, CpuPercent = 10, MemoryPercent = 20, DiskPercent = 30, ResponseTimeMs = 2, RegisteredAtUtc = DateTime.UtcNow });
+        db.Events.Add(new NetworkEvent { Device = device, EventType = "Connectivity", Description = "Test event", Severity = EventSeverity.Low, OccurredAtUtc = DateTime.UtcNow });
+        db.Alerts.Add(new Alert { Device = device, Title = "Test alert", Description = "Alert detail", Level = AlertLevel.Warning, GeneratedAtUtc = DateTime.UtcNow });
+        db.DeviceStateHistory.Add(new DeviceStateHistory { Device = device, PreviousStatus = DeviceStatus.Inactive, NewStatus = DeviceStatus.Active, Description = "State test", ChangedAtUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var rows = await new ReportsController(db).Get("all", device.Id, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default);
+
+        Assert.Equal(4, rows.Count);
+        Assert.Contains(rows, x => x.Category == "Métrica");
+        Assert.Contains(rows, x => x.Category == "Evento");
+        Assert.Contains(rows, x => x.Category == "Alerta");
+        Assert.Contains(rows, x => x.Category == "Estado");
+    }
+
+    [Fact(DisplayName = "CP-019 Excel export includes summary styling filters and category sheets")]
+    public async Task CP019_StyledExcelExport()
+    {
+        await using var db = CreateDb();
+        var device = Device();
+        db.Devices.Add(device);
+        db.Metrics.Add(new Metric { Device = device, CpuPercent = 91, MemoryPercent = 76, DiskPercent = 35, TemperatureCelsius = 43, NetworkTrafficMbps = 0.5m, ResponseTimeMs = 12.5m, RegisteredAtUtc = DateTime.UtcNow });
+        await db.SaveChangesAsync();
+
+        var file = await new ReportsController(db).Excel("all", device.Id, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default);
+        using var stream = new MemoryStream(file.FileContents);
+        using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+
+        Assert.EndsWith(".xlsx", file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull(archive.GetEntry("xl/styles.xml"));
+        Assert.Equal(5, archive.Entries.Count(x => x.FullName.StartsWith("xl/worksheets/sheet", StringComparison.Ordinal)));
+
+        var workbookXml = ReadZipEntry(archive, "xl/workbook.xml");
+        var stylesXml = ReadZipEntry(archive, "xl/styles.xml");
+        var metricsXml = ReadZipEntry(archive, "xl/worksheets/sheet2.xml");
+        Assert.Contains("Resumen", workbookXml);
+        Assert.Contains("Métricas", workbookXml);
+        Assert.Contains("Eventos", workbookXml);
+        Assert.Contains("Alertas", workbookXml);
+        Assert.Contains("Estados", workbookXml);
+        Assert.Contains("FF2563EB", stylesXml);
+        Assert.Contains("autoFilter", metricsXml);
+        Assert.Contains("state=\"frozen\"", metricsXml);
+        Assert.Contains("0.91", metricsXml);
+    }
+
+    private static string ReadZipEntry(ZipArchive archive, string path)
+    {
+        using var reader = new StreamReader(archive.GetEntry(path)!.Open(), Encoding.UTF8);
+        return reader.ReadToEnd();
     }
 }

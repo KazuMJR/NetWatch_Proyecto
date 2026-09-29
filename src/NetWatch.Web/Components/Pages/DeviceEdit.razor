@@ -8,7 +8,7 @@
 
 <div class="page-heading">
     <div><span class="page-eyebrow">Administración de inventario</span><h1>@(Id.HasValue ? "Editar dispositivo" : "Registrar dispositivo")</h1><p>Complete la identidad, conectividad y características técnicas del equipo.</p></div>
-    <div class="page-actions"><a class="btn btn-outline-secondary" href="devices"><AppIcon Name="back" Size="17" /> Volver al inventario</a></div>
+    <div class="page-actions"><a class="btn btn-soft-neutral" href="devices"><AppIcon Name="back" Size="17" /> Volver al inventario</a></div>
 </div>
 
 @if (error is not null) { <div class="alert alert-danger"><strong>No fue posible guardar.</strong> @error</div> }
@@ -28,7 +28,7 @@
             <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="settings" Size="17" /></span><div><h2>Plataforma y monitoreo</h2><p>Datos técnicos y comportamiento del sistema.</p></div></div>
             <div class="row g-3"><div class="col-md-4"><label class="form-label">Fabricante</label><InputText class="form-control" @bind-Value="model.Manufacturer" /></div><div class="col-md-4"><label class="form-label">Modelo</label><InputText class="form-control" @bind-Value="model.Model" /></div><div class="col-md-4"><label class="form-label">Sistema operativo</label><InputText class="form-control" @bind-Value="model.OperatingSystem" /></div><div class="col-12 mt-4"><div class="p-3 rounded-3 bg-light border"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="model.MonitoringEnabled" /><label class="form-check-label fw-semibold">Habilitar monitoreo automático</label></div><div class="form-hint ms-4">NetWatch realizará comprobaciones ICMP periódicas y actualizará el estado del dispositivo.</div></div></div></div>
         </div>
-        <div class="d-flex gap-2 justify-content-end"><a class="btn btn-outline-secondary" href="devices">Cancelar</a><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Guardar dispositivo")</button></div>
+        <div class="d-flex gap-2 justify-content-end"><a class="btn btn-soft-neutral" href="devices"><AppIcon Name="back" Size="16" /> Cancelar</a><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Guardar dispositivo")</button></div>
     </EditForm>
 </section>
 

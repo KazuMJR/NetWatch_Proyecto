@@ -11,11 +11,11 @@
 
 @if (error is not null) { <div class="alert alert-danger"><strong>No fue posible consultar los eventos.</strong> @error</div> }
 
-<section class="panel filter-panel mb-4">
+<section class="panel filter-panel mb-4" data-guide="event-filters">
     <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Filtros de consulta</div>
     <div class="row g-3 align-items-end">
-        <div class="col-md-5"><label class="form-label">Dispositivo</label><select class="form-select" @bind="deviceId"><option value="">Todos los dispositivos</option>@foreach (var device in devices){<option value="@device.Id">@device.Name · @device.IpAddress</option>}</select></div>
-        <div class="col-md-4"><label class="form-label">Estado de la alerta</label><select class="form-select" @bind="alertStatus"><option value="">Todos los estados</option><option value="Pending">Pendientes</option><option value="Attended">Atendidas</option></select></div>
+        <div class="col-md-5"><label class="form-label">Dispositivo <FieldRequirement Required="false" /></label><select class="form-select" @bind="deviceId"><option value="">Todos los dispositivos</option>@foreach (var device in devices){<option value="@device.Id">@device.Name · @device.IpAddress</option>}</select></div>
+        <div class="col-md-4"><label class="form-label">Estado de la alerta <FieldRequirement Required="false" /></label><select class="form-select" @bind="alertStatus"><option value="">Todos los estados</option><option value="Pending">Pendientes</option><option value="Attended">Atendidas</option></select></div>
         <div class="col-md-3"><button class="btn btn-primary w-100" @onclick="Load"><AppIcon Name="filter" Size="16" /> Aplicar filtros</button></div>
     </div>
 </section>

@@ -17,10 +17,13 @@ public sealed class MetricIngestionService(NetWatchDbContext db, DeviceStateServ
         if (request.ResponseTimeMs < 0) throw new ArgumentException("El tiempo de respuesta no puede ser negativo.");
         var device = await db.Devices.Include(x => x.DeviceType).SingleOrDefaultAsync(x => x.Id == request.DeviceId && x.IsActive && x.MonitoringEnabled, cancellationToken)
             ?? throw new KeyNotFoundException("No se encontró un dispositivo activo con monitoreo habilitado.");
+        var temperature = request.TemperatureCelsius;
+        if (!temperature.HasValue && IsVirtualMachine(device.DeviceType.Name))
+            temperature = SimulateVirtualMachineTemperature(request);
         var metric = new Metric
         {
             DeviceId = request.DeviceId, CpuPercent = request.CpuPercent, MemoryPercent = request.MemoryPercent,
-            DiskPercent = request.DiskPercent, TemperatureCelsius = request.TemperatureCelsius,
+            DiskPercent = request.DiskPercent, TemperatureCelsius = temperature,
             NetworkTrafficMbps = request.NetworkTrafficMbps, ResponseTimeMs = request.ResponseTimeMs,
             RegisteredAtUtc = DateTime.UtcNow, Device = device
         };
@@ -32,5 +35,19 @@ public sealed class MetricIngestionService(NetWatchDbContext db, DeviceStateServ
     private static void ValidatePercent(decimal value, string name)
     {
         if (value is < 0 or > 100) throw new ArgumentException($"{name} debe estar entre 0 y 100.");
+    }
+
+    private static bool IsVirtualMachine(string typeName) =>
+        typeName.Contains("virtual", StringComparison.OrdinalIgnoreCase)
+        || typeName.Contains("máquina", StringComparison.OrdinalIgnoreCase)
+        || typeName.Contains("maquina", StringComparison.OrdinalIgnoreCase);
+
+    private static decimal SimulateVirtualMachineTemperature(MetricIngestRequest request)
+    {
+        // Las plataformas de virtualización normalmente no exponen un sensor térmico al huésped.
+        // La estimación sigue la carga combinada y una oscilación lenta para evitar valores estáticos.
+        var normalizedLoad = (request.CpuPercent * .58m + request.MemoryPercent * .27m + request.DiskPercent * .15m) / 100m;
+        var wave = (decimal)Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds / 9d) * .75m;
+        return Math.Round(Math.Clamp(35m + normalizedLoad * 30m + wave, 35m, 70m), 2);
     }
 }

@@ -22,8 +22,8 @@
             <div class="login-card-header"><h1>Bienvenido</h1><p>Ingrese sus credenciales para acceder al centro de operaciones.</p></div>
             @if (!string.IsNullOrWhiteSpace(error)) { <div class="alert alert-danger">@error</div> }
             <EditForm Model="model" OnValidSubmit="SubmitLogin"><DataAnnotationsValidator />
-                <div class="mb-3"><label class="form-label">Nombre de usuario</label><InputText class="form-control" autocomplete="username" @bind-Value="model.Username" placeholder="Ingrese su usuario" /><ValidationMessage For="() => model.Username" /></div>
-                <div class="mb-3"><label class="form-label">Contraseña</label><InputText type="password" class="form-control" autocomplete="current-password" @bind-Value="model.Password" placeholder="Ingrese su contraseña" /><ValidationMessage For="() => model.Password" /></div>
+                <div class="mb-3"><label class="form-label">Nombre de usuario <FieldRequirement Required="true" /></label><InputText class="form-control" autocomplete="username" @bind-Value="model.Username" placeholder="Ingrese su usuario" /><ValidationMessage For="() => model.Username" /></div>
+                <div class="mb-3"><label class="form-label">Contraseña <FieldRequirement Required="true" /></label><InputText type="password" class="form-control" autocomplete="current-password" @bind-Value="model.Password" placeholder="Ingrese su contraseña" /><ValidationMessage For="() => model.Password" /></div>
                 <button class="btn btn-primary w-100 mt-2" disabled="@busy"><AppIcon Name="shield" Size="17" /> @(busy ? "Validando acceso..." : "Iniciar sesión")</button>
             </EditForm>
             <div class="login-security"><AppIcon Name="shield" Size="13" /> Acceso protegido mediante autenticación segura</div>

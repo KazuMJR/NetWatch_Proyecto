@@ -12,13 +12,16 @@
         <p>Consulte la información por periodo y descargue todos los resultados del filtro aplicado.</p>
     </div>
     <div class="page-actions">
-        <button class="export-action" @onclick="Download" disabled="@(rows.Count == 0 || isLoading || isExporting)">
-            <span class="export-action-icon"><AppIcon Name="download" Size="20" /></span>
-            <span class="export-action-copy">
-                <strong>@(isExporting ? "Preparando archivo..." : "Exportar a Excel")</strong>
-                <small>@(rows.Count == 0 ? "Aplique un filtro para descargar" : $"{rows.Count:N0} registros filtrados")</small>
-            </span>
-        </button>
+        <div class="export-actions" data-guide="report-export">
+            <button class="export-action export-excel" @onclick='() => Download("excel")' disabled="@(rows.Count == 0 || isLoading || isExporting)">
+                <span class="export-action-icon"><AppIcon Name="download" Size="20" /></span>
+                <span class="export-action-copy"><strong>@(isExporting && exportingFormat == "excel" ? "Preparando Excel..." : "Exportar a Excel")</strong><small>Libro editable con hojas y filtros</small></span>
+            </button>
+            <button class="export-action export-pdf" @onclick="PreviewPdf" disabled="@(rows.Count == 0 || isLoading || isExporting)">
+                <span class="export-action-icon"><AppIcon Name="pdf" Size="20" /></span>
+                <span class="export-action-copy"><strong>@(isExporting && exportingFormat == "pdf" ? "Preparando vista previa..." : "Vista previa PDF")</strong><small>Revise, imprima o descargue después</small></span>
+            </button>
+        </div>
     </div>
 </div>
 
@@ -31,7 +34,7 @@
     <div class="alert alert-success"><AppIcon Name="check" Size="16" /> @notice</div>
 }
 
-<section class="panel report-filter-panel mb-4">
+<section class="panel report-filter-panel mb-4" data-guide="report-filters">
     <div class="report-filter-header">
         <div>
             <div class="filter-heading"><AppIcon Name="filter" Size="17" /> Filtros del reporte</div>
@@ -42,7 +45,7 @@
 
     <div class="report-filter-grid">
         <div class="filter-field filter-type">
-            <label class="form-label">Tipo de información</label>
+            <label class="form-label">Tipo de información <FieldRequirement Required="true" /></label>
             <select class="form-select" @bind="type">
                 <option value="all">Todos los datos</option>
                 <option value="metrics">Métricas de rendimiento</option>
@@ -52,7 +55,7 @@
             </select>
         </div>
         <div class="filter-field filter-device">
-            <label class="form-label">Dispositivo</label>
+            <label class="form-label">Dispositivo <FieldRequirement Required="false" /></label>
             <select class="form-select" @bind="deviceId">
                 <option value="">Todos los dispositivos</option>
                 @foreach (var device in devices)
@@ -62,11 +65,11 @@
             </select>
         </div>
         <div class="filter-field">
-            <label class="form-label">Desde</label>
+            <label class="form-label">Desde <FieldRequirement Required="true" /></label>
             <InputDate class="form-control" @bind-Value="from" />
         </div>
         <div class="filter-field">
-            <label class="form-label">Hasta</label>
+            <label class="form-label">Hasta <FieldRequirement Required="true" /></label>
             <InputDate class="form-control" @bind-Value="to" />
         </div>
         <div class="filter-actions">
@@ -105,7 +108,7 @@
                 <p class="panel-subtitle">Datos ordenados del registro más reciente al más antiguo</p>
             </div>
         </div>
-        <div class="results-export-hint"><AppIcon Name="download" Size="15" /> Excel incluye todas las filas y hojas separadas por categoría</div>
+        <div class="results-export-hint"><AppIcon Name="download" Size="15" /> Excel se descarga; el PDF se abre primero en vista previa vertical</div>
     </div>
 
     @if (isLoading)
@@ -196,6 +199,7 @@
     private string? notice;
     private bool isLoading;
     private bool isExporting;
+    private string? exportingFormat;
 
     private string AppliedDeviceLabel => string.IsNullOrWhiteSpace(appliedDeviceId)
         ? "Todos los dispositivos"
@@ -268,18 +272,24 @@
         await Generate();
     }
 
-    private async Task Download()
+    private async Task Download(string format)
     {
         if (rows.Count == 0 || !appliedFrom.HasValue || !appliedTo.HasValue) return;
 
         try
         {
             isExporting = true;
+            exportingFormat = format;
             error = null;
             notice = null;
-            var file = await Api.DownloadAsync(Query("api/reports/excel", appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
-            await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-            notice = $"Se exportaron {rows.Count:N0} registros con los filtros aplicados.";
+            var isPdf = string.Equals(format, "pdf", StringComparison.OrdinalIgnoreCase);
+            var endpoint = isPdf ? "api/reports/pdf" : "api/reports/excel";
+            var contentType = isPdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+            var file = await Api.DownloadAsync(Query(endpoint, appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
+            await JS.InvokeVoidAsync("netwatchDownload", file.FileName, Convert.ToBase64String(file.Data), contentType);
+            notice = isPdf
+                ? $"PDF generado con {rows.Count:N0} registros y formato listo para impresión."
+                : $"Excel generado con {rows.Count:N0} registros y los filtros aplicados.";
         }
         catch (Exception ex)
         {
@@ -288,6 +298,39 @@
         finally
         {
             isExporting = false;
+            exportingFormat = null;
+        }
+    }
+
+    private async Task PreviewPdf()
+    {
+        if (rows.Count == 0 || !appliedFrom.HasValue || !appliedTo.HasValue) return;
+
+        string? previewId = null;
+        try
+        {
+            previewId = await JS.InvokeAsync<string?>("netwatchPdfPreview.open");
+            if (string.IsNullOrWhiteSpace(previewId))
+                throw new InvalidOperationException("El navegador bloqueó la vista previa. Permita las ventanas emergentes para NetWatch e inténtelo nuevamente.");
+
+            isExporting = true;
+            exportingFormat = "pdf";
+            error = null;
+            notice = null;
+            var file = await Api.DownloadAsync(Query("api/reports/pdf", appliedType, appliedDeviceId, appliedFrom.Value, appliedTo.Value));
+            await JS.InvokeVoidAsync("netwatchPdfPreview.show", previewId, file.FileName, Convert.ToBase64String(file.Data));
+            notice = $"Vista previa preparada con {rows.Count:N0} registros. Use los controles del navegador para imprimir o descargar.";
+        }
+        catch (Exception ex)
+        {
+            if (!string.IsNullOrWhiteSpace(previewId))
+                await JS.InvokeVoidAsync("netwatchPdfPreview.close", previewId);
+            error = ex.Message;
+        }
+        finally
+        {
+            isExporting = false;
+            exportingFormat = null;
         }
     }
 

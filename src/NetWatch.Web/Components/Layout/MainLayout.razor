@@ -1,7 +1,7 @@
 @inherits LayoutComponentBase
 
 <div class="app-shell">
-    <aside class="sidebar"><NavMenu /></aside>
+    <aside class="sidebar" data-guide="navigation"><NavMenu /></aside>
     <main class="main-panel">
         <header class="topbar">
             <div class="topbar-context">
@@ -10,14 +10,17 @@
             </div>
             <AuthorizeView>
                 <Authorized Context="auth">
-                    <div class="user-summary">
-                        <span class="user-avatar">@Initials(auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value)</span>
-                        <span><strong>@auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value</strong><small>@DisplayLabels.Role(auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)</small></span>
+                    <div class="topbar-actions">
+                        <GuidedTour />
+                        <div class="user-summary">
+                            <span class="user-avatar">@Initials(auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value)</span>
+                            <span><strong>@auth.User.FindFirst(System.Security.Claims.ClaimTypes.GivenName)?.Value</strong><small>@DisplayLabels.Role(auth.User.FindFirst(System.Security.Claims.ClaimTypes.Role)?.Value)</small></span>
+                        </div>
                     </div>
                 </Authorized>
             </AuthorizeView>
         </header>
-        <article class="content">@Body</article>
+        <article class="content" data-guide="page-content">@Body</article>
     </main>
 </div>
 <div id="blazor-error-ui">Ocurrió un error inesperado. <a href="" class="reload">Recargar</a><a class="dismiss">×</a></div>

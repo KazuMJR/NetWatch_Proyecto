@@ -8,25 +8,81 @@
 
 <div class="page-heading">
     <div><span class="page-eyebrow">Administración de inventario</span><h1>@(Id.HasValue ? "Editar dispositivo" : "Registrar dispositivo")</h1><p>Complete la identidad, conectividad y características técnicas del equipo.</p></div>
-    <div class="page-actions"><a class="btn btn-soft-neutral" href="devices"><AppIcon Name="back" Size="17" /> Volver al inventario</a></div>
+    <div class="page-actions">
+        <button type="button" class="btn device-help-trigger @(showHelp ? "active" : "")" @onclick="ToggleHelp" aria-expanded="@showHelp" aria-controls="device-help-panel"><AppIcon Name="help" Size="18" /> Ayuda para completar</button>
+        <a class="btn btn-soft-neutral" href="devices"><AppIcon Name="back" Size="17" /> Volver al inventario</a>
+    </div>
 </div>
+
+@if (showHelp)
+{
+    <aside id="device-help-panel" class="device-help-panel" aria-label="Ayuda para registrar un dispositivo">
+        <header>
+            <span class="device-help-mark"><AppIcon Name="help" Size="22" /></span>
+            <div><span class="page-eyebrow">GUÍA DEL FORMULARIO</span><h2>¿Qué información debo ingresar?</h2><p>Use esta referencia para registrar el equipo correctamente y comenzar a monitorearlo.</p></div>
+            <button type="button" class="device-help-close" @onclick="ToggleHelp" aria-label="Cerrar ayuda"><AppIcon Name="close" Size="18" /></button>
+        </header>
+        <div class="device-help-grid">
+            <section><span class="device-help-step">1</span><div><h3>Identifique el equipo</h3><p><strong>Nombre:</strong> una referencia única, por ejemplo <em>Windows-Servidor</em>. Seleccione el <strong>tipo</strong> correcto para clasificarlo y complete ubicación y descripción si ayudan a reconocerlo.</p></div></section>
+            <section><span class="device-help-step">2</span><div><h3>Indique cómo encontrarlo</h3><p><strong>Dirección IP:</strong> la dirección que NetWatch comprobará. La <strong>máscara</strong> define su red. Gateway, DNS y MAC son opcionales y sirven para documentar la conectividad.</p></div></section>
+            <section><span class="device-help-step">3</span><div><h3>Active el monitoreo</h3><p>Agregue fabricante, modelo y sistema operativo cuando los conozca. Habilite el monitoreo automático cuando la IP ya responda y el agente esté preparado para enviar métricas.</p></div></section>
+        </div>
+        <div class="device-help-note"><AppIcon Name="info" Size="17" /><span>Los campos marcados como <strong>Obligatorio</strong> son suficientes para guardar. Los campos <strong>Opcional</strong> mejoran la documentación y pueden completarse después.</span></div>
+    </aside>
+}
 
 @if (error is not null) { <div class="alert alert-danger"><strong>No fue posible guardar.</strong> @error</div> }
 
 <section class="panel">
     <EditForm Model="model" OnValidSubmit="Save">
         <DataAnnotationsValidator /><ValidationSummary />
+        <div class="form-requirement-legend"><span>Identificación de campos:</span><FieldRequirement Required="true" /><FieldRequirement Required="false" /></div>
         <div class="form-section">
             <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="devices" Size="17" /></span><div><h2>Identidad del dispositivo</h2><p>Información con la que aparecerá en el inventario.</p></div></div>
-            <div class="row g-3"><div class="col-md-6"><label class="form-label">Nombre del dispositivo</label><InputText class="form-control" @bind-Value="model.Name" /><div class="form-hint">Use un nombre reconocible y único.</div></div><div class="col-md-3"><label class="form-label">Tipo</label><InputSelect class="form-select" @bind-Value="model.DeviceTypeId"><option value="0">Seleccione un tipo</option>@foreach (var type in types){<option value="@type.Id">@DisplayLabels.DeviceType(type.Name)</option>}</InputSelect></div><div class="col-md-3"><label class="form-label">Ubicación</label><InputText class="form-control" @bind-Value="model.Location" placeholder="Ej. Laboratorio A" /></div><div class="col-12"><label class="form-label">Descripción</label><InputText class="form-control" @bind-Value="model.Description" placeholder="Función o notas relevantes del equipo" /></div></div>
+            <div class="row g-3">
+                <div class="col-md-6"><label class="form-label">Nombre del dispositivo <FieldRequirement Required="true" /></label><InputText class="form-control" @bind-Value="model.Name" /><ValidationMessage For="() => model.Name" /><div class="form-hint">Use un nombre reconocible y único.</div></div>
+                <div class="col-md-3"><label class="form-label">Tipo <FieldRequirement Required="true" /></label><InputSelect class="form-select" @bind-Value="model.DeviceTypeId"><option value="0">Seleccione un tipo</option>@foreach (var type in types){<option value="@type.Id">@DisplayLabels.DeviceType(type.Name)</option>}</InputSelect><ValidationMessage For="() => model.DeviceTypeId" /></div>
+                <div class="col-md-3"><label class="form-label">Ubicación <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.Location" placeholder="Ej. Laboratorio A" /></div>
+                <div class="col-12"><label class="form-label">Descripción <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.Description" placeholder="Función o notas relevantes del equipo" /></div>
+            </div>
         </div>
         <div class="form-section">
             <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="network" Size="17" /></span><div><h2>Configuración de red</h2><p>Direcciones usadas para conectividad y diagnóstico.</p></div></div>
-            <div class="row g-3"><div class="col-md-4"><label class="form-label">Dirección IP</label><InputText class="form-control" @bind-Value="model.IpAddress" placeholder="192.168.56.20" /></div><div class="col-md-4"><label class="form-label">Máscara o prefijo CIDR</label><InputText class="form-control" @bind-Value="model.SubnetMask" /></div><div class="col-md-4"><label class="form-label">Puerta de enlace</label><InputText class="form-control" @bind-Value="model.Gateway" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">DNS primario</label><InputText class="form-control" @bind-Value="model.PrimaryDns" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">DNS secundario</label><InputText class="form-control" @bind-Value="model.SecondaryDns" placeholder="Opcional" /></div><div class="col-md-4"><label class="form-label">Dirección MAC</label><InputText class="form-control" @bind-Value="model.MacAddress" placeholder="00:00:00:00:00:00" /></div></div>
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label">Dirección IP <FieldRequirement Required="true" /></label><InputText class="form-control" @bind-Value="model.IpAddress" placeholder="192.168.56.20" /><ValidationMessage For="() => model.IpAddress" /></div>
+                <div class="col-md-4"><label class="form-label">Máscara o prefijo CIDR <FieldRequirement Required="true" /></label><InputText class="form-control" @bind-Value="model.SubnetMask" /><ValidationMessage For="() => model.SubnetMask" /></div>
+                <div class="col-md-4"><label class="form-label">Puerta de enlace <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.Gateway" placeholder="Ej. 192.168.56.1" /></div>
+                <div class="col-md-4">
+                    <div class="form-label-row">
+                        <label class="form-label" for="primary-dns">DNS primario <FieldRequirement Required="false" /></label>
+                        <details class="dns-help">
+                            <summary aria-label="Explicación del DNS primario" title="¿Qué debo ingresar en DNS primario?">?</summary>
+                            <div class="dns-help-popover" role="note"><strong>¿Qué es el DNS primario?</strong><p>Es el servidor principal que convierte nombres como <em>servidor.local</em> en direcciones IP. Use el DNS de su red o uno autorizado, por ejemplo <b>8.8.8.8</b>. En una red de laboratorio aislada que trabaja solamente con direcciones IP puede dejarlo vacío.</p></div>
+                        </details>
+                    </div>
+                    <InputText id="primary-dns" class="form-control" @bind-Value="model.PrimaryDns" placeholder="Ej. 8.8.8.8 o vacío en una red aislada" />
+                </div>
+                <div class="col-md-4">
+                    <div class="form-label-row">
+                        <label class="form-label" for="secondary-dns">DNS secundario <FieldRequirement Required="false" /></label>
+                        <details class="dns-help">
+                            <summary aria-label="Explicación del DNS secundario" title="¿Qué debo ingresar en DNS secundario?">?</summary>
+                            <div class="dns-help-popover" role="note"><strong>¿Qué es el DNS secundario?</strong><p>Es un servidor de respaldo que se utiliza si el DNS primario no responde. Debe ser distinto al principal; por ejemplo <b>1.1.1.1</b>. Es opcional y puede dejarlo vacío si no dispone de uno.</p></div>
+                        </details>
+                    </div>
+                    <InputText id="secondary-dns" class="form-control" @bind-Value="model.SecondaryDns" placeholder="Ej. 1.1.1.1 o dejar vacío" />
+                </div>
+                <div class="col-md-4"><label class="form-label">Dirección MAC <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.MacAddress" placeholder="00:00:00:00:00:00" /></div>
+            </div>
         </div>
         <div class="form-section">
             <div class="form-section-heading"><span class="panel-title-icon"><AppIcon Name="settings" Size="17" /></span><div><h2>Plataforma y monitoreo</h2><p>Datos técnicos y comportamiento del sistema.</p></div></div>
-            <div class="row g-3"><div class="col-md-4"><label class="form-label">Fabricante</label><InputText class="form-control" @bind-Value="model.Manufacturer" /></div><div class="col-md-4"><label class="form-label">Modelo</label><InputText class="form-control" @bind-Value="model.Model" /></div><div class="col-md-4"><label class="form-label">Sistema operativo</label><InputText class="form-control" @bind-Value="model.OperatingSystem" /></div><div class="col-12 mt-4"><div class="p-3 rounded-3 bg-light border"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="model.MonitoringEnabled" /><label class="form-check-label fw-semibold">Habilitar monitoreo automático</label></div><div class="form-hint ms-4">NetWatch realizará comprobaciones ICMP periódicas y actualizará el estado del dispositivo.</div></div></div></div>
+            <div class="row g-3">
+                <div class="col-md-4"><label class="form-label">Fabricante <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.Manufacturer" /></div>
+                <div class="col-md-4"><label class="form-label">Modelo <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.Model" /></div>
+                <div class="col-md-4"><label class="form-label">Sistema operativo <FieldRequirement Required="false" /></label><InputText class="form-control" @bind-Value="model.OperatingSystem" /></div>
+                <div class="col-12 mt-4"><div class="p-3 rounded-3 bg-light border"><div class="form-check"><InputCheckbox class="form-check-input" @bind-Value="model.MonitoringEnabled" /><label class="form-check-label fw-semibold">Habilitar monitoreo automático</label></div><div class="form-hint ms-4">NetWatch realizará comprobaciones ICMP periódicas y actualizará el estado. En máquinas virtuales estimará la temperatura cuando el sistema invitado no exponga un sensor.</div></div></div>
+            </div>
         </div>
         <div class="d-flex gap-2 justify-content-end"><a class="btn btn-soft-neutral" href="devices"><AppIcon Name="back" Size="16" /> Cancelar</a><button class="btn btn-primary" disabled="@busy"><AppIcon Name="check" Size="17" /> @(busy ? "Guardando..." : "Guardar dispositivo")</button></div>
     </EditForm>
@@ -38,6 +94,9 @@
     private IReadOnlyList<DeviceTypeDto> types = [];
     private string? error;
     private bool busy;
+    private bool showHelp;
+
+    private void ToggleHelp() => showHelp = !showHelp;
 
     protected override async Task OnInitializedAsync()
     {

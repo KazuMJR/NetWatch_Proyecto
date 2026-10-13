@@ -241,6 +241,53 @@ public sealed class RequirementsTests
         Assert.Contains("0.91", metricsXml);
     }
 
+    [Fact(DisplayName = "CP-020 virtual machines receive an estimated temperature when no sensor is available")]
+    public async Task CP020_VirtualMachineTemperatureSimulation()
+    {
+        await using var db = CreateDb();
+        db.Devices.Add(Device());
+        await db.SaveChangesAsync();
+
+        var metric = await new MetricIngestionService(db, State(db))
+            .IngestAsync(new MetricIngestRequest(1, 45, 55, 35, null, 0.25m, 4));
+
+        Assert.NotNull(metric.TemperatureCelsius);
+        Assert.InRange(metric.TemperatureCelsius!.Value, 35m, 70m);
+        Assert.Equal(metric.TemperatureCelsius, (await db.Metrics.SingleAsync()).TemperatureCelsius);
+    }
+
+    [Fact(DisplayName = "CP-021 PDF export is printable and contains the selected report")]
+    public async Task CP021_PrintablePdfExport()
+    {
+        await using var db = CreateDb();
+        var device = Device();
+        db.Devices.Add(device);
+        db.Metrics.Add(new Metric
+        {
+            Device = device,
+            CpuPercent = 32,
+            MemoryPercent = 48,
+            DiskPercent = 28,
+            TemperatureCelsius = 44,
+            NetworkTrafficMbps = 1.5m,
+            ResponseTimeMs = 8.2m,
+            RegisteredAtUtc = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        var file = await new ReportsController(db).Pdf("metrics", device.Id, DateTime.UtcNow.AddHours(-1), DateTime.UtcNow.AddHours(1), default);
+        var document = Encoding.Latin1.GetString(file.FileContents);
+
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.EndsWith(".pdf", file.FileDownloadName, StringComparison.OrdinalIgnoreCase);
+        Assert.StartsWith("%PDF-1.4", document);
+        Assert.Contains("/MediaBox [0 0 612 792]", document);
+        Assert.Contains("Reporte de métricas de rendimiento", document);
+        Assert.Contains("Carta vertical", document);
+        Assert.Contains("Documento listo para impresión", document);
+        Assert.EndsWith("%%EOF", document);
+    }
+
     private static string ReadZipEntry(ZipArchive archive, string path)
     {
         using var reader = new StreamReader(archive.GetEntry(path)!.Open(), Encoding.UTF8);

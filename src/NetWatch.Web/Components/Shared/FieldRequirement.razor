@@ -1,0 +1,7 @@
+<span class="field-requirement @(Required ? "is-required" : "is-optional")">
+    @(Required ? "Obligatorio" : "Opcional")
+</span>
+
+@code {
+    [Parameter] public bool Required { get; set; }
+}

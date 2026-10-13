@@ -25,7 +25,7 @@ else
         <span class="summary-pill">Con advertencia <strong>@devices.Count(x => x.Status == "Warning")</strong></span>
         <span class="summary-pill">Desconectados <strong>@devices.Count(x => x.Status == "Disconnected")</strong></span>
     </div>
-    <section class="panel">
+    <section class="panel" data-guide="device-inventory">
         <div class="panel-header"><div class="panel-title"><span class="panel-title-icon"><AppIcon Name="server" Size="18" /></span><div><h2>Inventario de red</h2><p class="panel-subtitle">Equipos registrados en NetWatch</p></div></div><span class="panel-count">@devices.Count registros</span></div>
         @if (devices.Count == 0)
         {

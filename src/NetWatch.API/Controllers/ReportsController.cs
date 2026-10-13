@@ -39,6 +39,19 @@ public sealed class ReportsController(NetWatchDbContext db) : ControllerBase
         return File(workbook, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"netwatch-{TypeLabel(type)}-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx");
     }
 
+    [HttpGet("pdf")]
+    public async Task<FileContentResult> Pdf([FromQuery] string type = "metrics", [FromQuery] int? deviceId = null, [FromQuery] DateTime? fromUtc = null, [FromQuery] DateTime? toUtc = null, CancellationToken ct = default)
+    {
+        var from = fromUtc ?? DateTime.UtcNow.AddDays(-7);
+        var to = toUtc ?? DateTime.UtcNow;
+        var rows = await Get(type, deviceId, from, to, ct);
+        var deviceLabel = deviceId.HasValue
+            ? await db.Devices.AsNoTracking().Where(x => x.Id == deviceId.Value).Select(x => x.Name).SingleOrDefaultAsync(ct) ?? $"Equipo #{deviceId.Value}"
+            : "Todos los dispositivos";
+        var pdf = PdfReportBuilder.Build(rows, type, deviceLabel, from, to, DateTime.UtcNow);
+        return File(pdf, "application/pdf", $"netwatch-{TypeLabel(type)}-{DateTime.UtcNow:yyyyMMddHHmmss}.pdf");
+    }
+
     [HttpGet("csv")]
     public async Task<FileContentResult> Csv([FromQuery] string type = "metrics", [FromQuery] int? deviceId = null, [FromQuery] DateTime? fromUtc = null, [FromQuery] DateTime? toUtc = null, CancellationToken ct = default)
     {

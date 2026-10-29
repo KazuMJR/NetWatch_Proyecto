@@ -79,7 +79,7 @@ public sealed class RequirementsTests
     {
         await using var db = CreateDb(); var d = Device(); d.Status = DeviceStatus.Active; db.Devices.Add(d); await db.SaveChangesAsync(); var state = State(db);
         await state.ProcessPingResultAsync(d, false, null); await state.ProcessPingResultAsync(d, false, null); await state.ProcessPingResultAsync(d, false, null);
-        Assert.Equal(DeviceStatus.Disconnected, d.Status); Assert.Single(db.DeviceStateHistory); Assert.Single(db.Events); Assert.Single(db.Alerts);
+        Assert.Equal(DeviceStatus.Disconnected, d.Status); Assert.NotNull(d.LastPingAtUtc); Assert.Null(d.LastResponseTimeMs); Assert.Single(db.DeviceStateHistory); Assert.Single(db.Events); Assert.Single(db.Alerts);
     }
 
     [Fact(DisplayName = "CP-008 valid agent metric is stored")]
@@ -286,6 +286,17 @@ public sealed class RequirementsTests
         Assert.Contains("Carta vertical", document);
         Assert.Contains("Documento listo para impresión", document);
         Assert.EndsWith("%%EOF", document);
+    }
+
+    [Fact(DisplayName = "CP-022 dashboard exposes a complete live connectivity check")]
+    public void CP022_DashboardLiveConnectivityCheck()
+    {
+        var method = typeof(MonitoringController).GetMethod(nameof(MonitoringController.PingAll));
+        var route = method?.GetCustomAttribute<HttpPostAttribute>();
+
+        Assert.NotNull(method);
+        Assert.NotNull(route);
+        Assert.Equal("ping-all", route!.Template);
     }
 
     private static string ReadZipEntry(ZipArchive archive, string path)

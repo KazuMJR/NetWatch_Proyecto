@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\NetWatch.API\NetWatch.API.csproj" />
     <ProjectReference Include="..\..\src\NetWatch.Data\NetWatch.Data.csproj" />
+    <ProjectReference Include="..\..\src\NetWatch.Web\NetWatch.Web.csproj" />
   </ItemGroup>
 
 </Project>

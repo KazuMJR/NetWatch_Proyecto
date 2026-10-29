@@ -7,7 +7,10 @@
 
 <div class="page-heading">
     <div><span class="page-eyebrow">Resumen operativo</span><h1>Panel principal</h1><p>Visión general del laboratorio y sus indicadores en tiempo real.</p></div>
-    <div class="page-actions"><button class="btn btn-soft-primary" @onclick="Load"><AppIcon Name="refresh" Size="17" /> Actualizar datos</button></div>
+    <div class="dashboard-refresh-area">
+        <span class="dashboard-refresh-status"><span class="live-dot"></span>@(lastRefreshUtc.HasValue ? $"Comprobado a las {lastRefreshUtc.Value.ToLocalTime():HH:mm:ss}" : "Preparando monitoreo automático")</span>
+        <button class="btn btn-soft-primary" @onclick="RefreshNow" disabled="@isRefreshing"><span class="refresh-icon @(isRefreshing ? "spinning" : "")"><AppIcon Name="refresh" Size="17" /></span> @(isRefreshing ? "Comprobando equipos..." : "Comprobar ahora")</button>
+    </div>
 </div>
 
 @if (error is not null)
@@ -116,27 +119,56 @@ else
     private IReadOnlyList<DeviceDto> devices = [];
     private IReadOnlyList<EventDto> events = [];
     private string? error;
+    private bool isRefreshing;
+    private bool disposed;
+    private DateTime? lastRefreshUtc;
 
-    protected override async Task OnInitializedAsync() { await Load(); _ = RefreshLoopAsync(refreshCancellation.Token); }
-
-    private async Task Load()
+    protected override async Task OnInitializedAsync()
     {
+        // Navigation can dispose this page while the initial network check is awaiting.
+        var cancellationToken = refreshCancellation.Token;
+        await RefreshNow();
+        if (!disposed) _ = RefreshLoopAsync(cancellationToken);
+    }
+
+    private async Task RefreshNow()
+    {
+        if (disposed || isRefreshing) return;
+        var cancellationToken = refreshCancellation.Token;
         try
         {
+            isRefreshing = true;
             error = null;
-            var dashboardTask = Api.GetAsync<DashboardDto>("api/dashboard");
-            var devicesTask = Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices");
-            var eventsTask = Api.GetAsync<IReadOnlyList<EventDto>>("api/events?limit=10");
+            await Api.PostAsync("api/diagnostics/ping-all", cancellationToken: cancellationToken);
+            if (disposed) return;
+            var dashboardTask = Api.GetAsync<DashboardDto>("api/dashboard", cancellationToken);
+            var devicesTask = Api.GetAsync<IReadOnlyList<DeviceDto>>("api/devices", cancellationToken);
+            var eventsTask = Api.GetAsync<IReadOnlyList<EventDto>>("api/events?limit=10", cancellationToken);
             await Task.WhenAll(dashboardTask, devicesTask, eventsTask);
+            if (disposed) return;
             data = await dashboardTask; devices = await devicesTask; events = await eventsTask;
+            lastRefreshUtc = DateTime.UtcNow;
         }
-        catch (Exception ex) { error = ex.Message; }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
+        catch (Exception ex) { if (!disposed) error = ex.Message; }
+        finally { isRefreshing = false; }
     }
 
     private async Task RefreshLoopAsync(CancellationToken cancellationToken)
     {
-        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
-        try { while (await timer.WaitForNextTickAsync(cancellationToken)) await InvokeAsync(Load); }
+        using var timer = new PeriodicTimer(TimeSpan.FromSeconds(20));
+        try
+        {
+            while (await timer.WaitForNextTickAsync(cancellationToken))
+            {
+                await InvokeAsync(async () =>
+                {
+                    if (disposed) return;
+                    await RefreshNow();
+                    if (!disposed) StateHasChanged();
+                });
+            }
+        }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
@@ -149,5 +181,12 @@ else
         builder.OpenElement(4, "span"); builder.AddAttribute(5, "style", $"width:{Math.Clamp(value, 0, 100)}%"); builder.CloseElement(); builder.CloseElement(); builder.CloseElement();
     };
 
-    public ValueTask DisposeAsync() { refreshCancellation.Cancel(); refreshCancellation.Dispose(); return ValueTask.CompletedTask; }
+    public ValueTask DisposeAsync()
+    {
+        if (disposed) return ValueTask.CompletedTask;
+        disposed = true;
+        refreshCancellation.Cancel();
+        refreshCancellation.Dispose();
+        return ValueTask.CompletedTask;
+    }
 }

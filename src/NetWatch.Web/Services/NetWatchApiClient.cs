@@ -16,12 +16,13 @@ public sealed class NetWatchApiClient(IHttpClientFactory factory, ApiAuthenticat
         return request;
     }
 
-    public async Task<T> GetAsync<T>(string uri)
+    public async Task<T> GetAsync<T>(string uri, CancellationToken cancellationToken = default)
     {
         using var request = await RequestAsync(HttpMethod.Get, uri);
-        using var response = await factory.CreateClient("NetWatchAnonymous").SendAsync(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var response = await factory.CreateClient("NetWatchAnonymous").SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response);
-        return await response.Content.ReadFromJsonAsync<T>() ?? throw new ApiException("La API devolvió una respuesta vacía.");
+        return await response.Content.ReadFromJsonAsync<T>(cancellationToken: cancellationToken) ?? throw new ApiException("La API devolvió una respuesta vacía.");
     }
 
     public async Task<TResponse> PostAsync<TResponse>(string uri, object? body = null)
@@ -32,10 +33,11 @@ public sealed class NetWatchApiClient(IHttpClientFactory factory, ApiAuthenticat
         return await response.Content.ReadFromJsonAsync<TResponse>() ?? throw new ApiException("La API devolvió una respuesta vacía.");
     }
 
-    public async Task PostAsync(string uri, object? body = null)
+    public async Task PostAsync(string uri, object? body = null, CancellationToken cancellationToken = default)
     {
         using var request = await RequestAsync(HttpMethod.Post, uri, body);
-        using var response = await factory.CreateClient("NetWatchAnonymous").SendAsync(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        using var response = await factory.CreateClient("NetWatchAnonymous").SendAsync(request, cancellationToken);
         await EnsureSuccessAsync(response);
     }
 

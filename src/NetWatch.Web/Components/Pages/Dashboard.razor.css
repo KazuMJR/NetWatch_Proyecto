@@ -1,0 +1,4 @@
+.dashboard-refresh-area{display:flex;align-items:flex-end;gap:11px}.dashboard-refresh-status{display:flex;align-items:center;gap:7px;color:#6c7d91;font-size:.69rem;white-space:nowrap}.live-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.12)}.refresh-icon{display:inline-grid}.refresh-icon.spinning{animation:dashboard-spin .85s linear infinite}
+@keyframes dashboard-spin{to{transform:rotate(360deg)}}
+@media(max-width:700px){.dashboard-refresh-area{width:100%;align-items:stretch;flex-direction:column}.dashboard-refresh-status{order:2}.dashboard-refresh-area .btn{width:100%}}
+@media(prefers-reduced-motion:reduce){.refresh-icon.spinning{animation:none}}

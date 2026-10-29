@@ -25,6 +25,8 @@ public sealed class DeviceStateService(NetWatchDbContext db, IOptions<Monitoring
         else
         {
             device.ConsecutivePingFailures++;
+            device.LastPingAtUtc = DateTime.UtcNow;
+            device.LastResponseTimeMs = null;
             if (device.ConsecutivePingFailures >= _options.FailuresBeforeDisconnected)
                 await TransitionAsync(device, DeviceStatus.Disconnected, $"Sin respuesta ICMP después de {device.ConsecutivePingFailures} comprobaciones consecutivas", cancellationToken);
             else

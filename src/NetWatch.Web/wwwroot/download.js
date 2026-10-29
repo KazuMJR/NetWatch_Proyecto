@@ -50,8 +50,10 @@ window.netwatchPdfPreview = (() => {
 })();
 
 window.netwatchGuide = (() => {
-    const waitForTarget = async (selector) => {
+    let requestVersion = 0, activeTarget = null, activeStep = 0, frame = null, observer = null;
+    const waitForTarget = async (selector, version) => {
         for (let attempt = 0; attempt < 25; attempt++) {
+            if (version !== requestVersion) return null;
             const target = document.querySelector(selector);
             if (target && target.getBoundingClientRect().width > 0) return target;
             await new Promise(resolve => window.setTimeout(resolve, 80));
@@ -60,18 +62,13 @@ window.netwatchGuide = (() => {
     };
 
     const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(value, maximum));
-
-    return {
-        show: async (selector) => {
-            const target = await waitForTarget(selector);
+    const overlap = (a, b) => Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left)) * Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    const place = () => {
+            const target = activeTarget;
             const spotlight = document.getElementById('netwatch-guide-spotlight');
             const card = document.getElementById('netwatch-guide-card');
-            if (!target || !spotlight || !card) return false;
-
-            card.style.visibility = 'hidden';
-            target.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
-            await new Promise(resolve => window.setTimeout(resolve, 280));
-
+            const nero = document.getElementById('netwatch-guide-nero');
+            if (!target?.isConnected || !spotlight || !card || !nero) return false;
             const rect = target.getBoundingClientRect();
             const padding = 8;
             const top = clamp(rect.top - padding, 8, window.innerHeight - 24);
@@ -82,6 +79,7 @@ window.netwatchGuide = (() => {
             spotlight.style.left = `${left}px`;
             spotlight.style.width = `${Math.max(16, right - left)}px`;
             spotlight.style.height = `${Math.max(16, bottom - top)}px`;
+            spotlight.style.visibility = 'visible';
 
             const cardRect = card.getBoundingClientRect();
             const margin = 16;
@@ -104,11 +102,72 @@ window.netwatchGuide = (() => {
             card.style.left = `${cardLeft}px`;
             card.style.top = `${cardTop}px`;
             card.style.visibility = 'visible';
+            const catWidth = nero.offsetWidth || 88, catHeight = nero.offsetHeight || 98;
+            const positions = [
+                [right + 10, top], [right - catWidth, bottom + 10],
+                [left, top - catHeight - 10], [left - catWidth - 10, bottom - catHeight],
+                [left, bottom + 10], [right - catWidth, top - catHeight - 10],
+                [right - catWidth - 10, top + 10], [left + 10, bottom - catHeight - 10]
+            ];
+            const dialog = { left:cardLeft, top:cardTop, right:cardLeft + cardRect.width, bottom:cardTop + cardRect.height };
+            const focus = { left, top, right, bottom };
+            const choices = positions.map((_, index) => {
+                const [idealX, idealY] = positions[(index + activeStep) % positions.length];
+                const x = clamp(idealX, 8, window.innerWidth - catWidth - 8);
+                const y = clamp(idealY, 8, window.innerHeight - catHeight - 8);
+                const box = { left:x, top:y, right:x + catWidth, bottom:y + catHeight };
+                return { x, y, score:overlap(box, dialog) * 100 + overlap(box, focus) * 4 + Math.hypot(x - idealX, y - idealY) * 5 + index * 60 };
+            }).sort((a, b) => a.score - b.score);
+            nero.style.left = `${choices[0].x}px`;
+            nero.style.top = `${choices[0].y}px`;
+            nero.style.visibility = 'visible';
+            const cat = nero.querySelector('.pixel-cat');
+            const animate = window.netwatchMascot?.motionEnabled() ?? !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            cat?.classList.toggle('motion-enabled', animate);
+            cat?.classList.toggle('motion-disabled', !animate);
+            return true;
+    };
+    const schedule = () => {
+        if (frame !== null) return;
+        frame = window.requestAnimationFrame(() => { frame = null; place(); });
+    };
+    const disconnect = () => {
+        window.removeEventListener('resize', schedule);
+        window.removeEventListener('scroll', schedule, true);
+        observer?.disconnect(); observer = null;
+        if (frame !== null) window.cancelAnimationFrame(frame);
+        frame = null;
+    };
+    return {
+        show: async (selector, step = 0) => {
+            const version = ++requestVersion;
+            disconnect();
+            for (const id of ['netwatch-guide-card', 'netwatch-guide-nero', 'netwatch-guide-spotlight']) {
+                const element = document.getElementById(id);
+                if (element) element.style.visibility = 'hidden';
+            }
+            const target = await waitForTarget(selector, version);
+            if (!target || version !== requestVersion) return false;
+            target.scrollIntoView({ block:'center', inline:'nearest', behavior:'instant' });
+            activeTarget = target; activeStep = step;
+            if (!place()) return false;
+            window.addEventListener('resize', schedule);
+            window.addEventListener('scroll', schedule, true);
+            if (window.ResizeObserver) {
+                observer = new window.ResizeObserver(schedule);
+                observer.observe(target);
+                const card = document.getElementById('netwatch-guide-card');
+                if (card) observer.observe(card);
+            }
             return true;
         },
         clear: () => {
-            const card = document.getElementById('netwatch-guide-card');
-            if (card) card.style.visibility = 'hidden';
+            requestVersion++;
+            disconnect(); activeTarget = null;
+            for (const id of ['netwatch-guide-card', 'netwatch-guide-nero', 'netwatch-guide-spotlight']) {
+                const element = document.getElementById(id);
+                if (element) element.style.visibility = 'hidden';
+            }
         }
     };
 })();

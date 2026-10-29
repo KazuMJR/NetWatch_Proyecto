@@ -1,0 +1,186 @@
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<aside @ref="mascotRoot" class="mascot-guide" data-mascot-profile="@profile" data-menu-open="@(menuOpen ? "true" : "false")" aria-label="Mascota guía de NetWatch">
+    @if (showTip)
+    {
+        <section class="mascot-message" aria-live="polite">
+            <svg class="thought-cloud" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true"><path d="M25 18C28 2 51 1 67 10C82 1 104 1 119 9C139 1 160 1 179 9C198 1 220 1 235 12C258 3 280 11 282 30C298 38 299 57 289 71C300 85 300 103 290 117C301 134 298 152 287 163C297 183 285 203 265 203C253 219 232 219 216 210C197 221 177 219 162 211C144 221 123 219 108 210C89 220 67 218 55 207C33 216 13 201 15 183C1 173 1 154 11 140C1 123 1 105 11 91C1 75 3 56 17 47C7 34 13 22 25 18Z" /></svg>
+            <button type="button" class="mascot-close" @onclick="CloseTip" aria-label="Cerrar consejo"><AppIcon Name="close" Size="14" /></button>
+            <span class="mascot-kicker">NERO PIENSA…</span>
+            <strong>@tip.Title</strong>
+            <p>@tip.Message</p>
+            @if (AllowMenu)
+            {
+                <small class="mascot-hint">@(dockCorner == "free" ? "Arrástrame para moverme. Mis acciones están en “···”." : "Puedes cambiar mi esquina desde el menú “···”.")</small>
+                <button type="button" class="mascot-disable-tips" @onclick="DisableTips">Desactivar consejos</button>
+            }
+        </section>
+        <span class="mascot-thought-dot thought-near" aria-hidden="true"></span>
+        <span class="mascot-thought-dot thought-far" aria-hidden="true"></span>
+    }
+    <button type="button" class="mascot-character" aria-label="Acariciar a Nero" title="@(dockCorner == "free" ? "Un clic: acariciar. Mantener y mover: levantar a Nero." : "Nero está en modo discreto. Usa su menú para cambiar de esquina o liberarlo.")">
+        <PixelCat Mood="idle" />
+    </button>
+    @if (AllowMenu)
+    {
+        <button type="button" class="mascot-menu-toggle" @onclick="ToggleMenu" aria-label="Acciones de Nero" aria-controls="nero-controls" aria-expanded="@menuOpen" title="Acciones de Nero">···</button>
+    }
+    <span class="mascot-emote" aria-hidden="true">¡Te atrapé!</span>
+    <svg class="mascot-caught-cursor" viewBox="0 0 22 28" aria-hidden="true"><path d="M2 2v21l5-5 4 8 4-2-4-8h8Z" fill="white" stroke="#15283d" stroke-width="2" stroke-linejoin="round" /></svg>
+    <span class="mascot-surface-glow" aria-hidden="true"></span>
+    <span class="mascot-status sr-only" aria-live="polite" aria-atomic="true">Nero está tranquilo.</span>
+    @if (AllowMenu && menuOpen)
+    {
+        <section id="nero-controls" class="mascot-controls" aria-label="Acciones de Nero" @onkeydown="OnMenuKeyDown">
+            <div class="mascot-wheel" role="group" aria-label="Rueda de acciones de Nero">
+                <div class="wheel-center"><AppIcon Name="cat-paw" Size="16" /><strong>Nero</strong><button type="button" @onclick="CloseMenu" aria-label="Cerrar acciones de Nero">Cerrar <AppIcon Name="close" Size="10" /></button></div>
+                <button type="button" class="wheel-action sector-0" data-mascot-command="sit" @onclick='() => Command("sit")'><AppIcon Name="cat-paw" Size="20" /><span>Sentarse</span></button>
+                <button type="button" class="wheel-action sector-1" data-mascot-command="nap" @onclick='() => Command("nap")'><AppIcon Name="moon" Size="20" /><span>Dormir</span></button>
+                <button type="button" class="wheel-action sector-2" data-mascot-command="groom" @onclick='() => Command("groom")'><AppIcon Name="sparkles" Size="20" /><span>Asearse</span></button>
+                <button type="button" class="wheel-action sector-3" data-mascot-command="play" @onclick='() => Command("play")'><AppIcon Name="yarn" Size="20" /><span>Jugar</span></button>
+                <button type="button" class="wheel-action sector-4" data-mascot-command="stretch" @onclick='() => Command("stretch")'><AppIcon Name="activity" Size="20" /><span>Estirarse</span></button>
+                <button type="button" class="wheel-action sector-5" data-mascot-command="explore" disabled="@(dockCorner != "free")" @onclick='() => Command("explore")'><AppIcon Name="location" Size="20" /><span>Explorar</span></button>
+                <button type="button" class="wheel-action sector-6" data-mascot-command="calm" @onclick='() => Command("calm")'><AppIcon Name="pause" Size="20" /><span>Tranquilo</span></button>
+                <button type="button" class="wheel-action sector-7" @onclick="ShowTip"><AppIcon Name="help" Size="20" /><span>Guía rápida</span></button>
+            </div>
+            <div class="wheel-footer">
+                <label class="mascot-dock-label" for="nero-location">Ubicación de Nero</label>
+                <select id="nero-location" class="mascot-dock-select" value="@dockCorner" @onchange="SetDock">
+                    <option value="bottom-right">Esquina inferior derecha</option>
+                    <option value="bottom-left">Esquina inferior izquierda</option>
+                    <option value="top-right">Esquina superior derecha</option>
+                    <option value="top-left">Esquina superior izquierda</option>
+                    <option value="free">Libre por la pantalla</option>
+                </select>
+                <small class="mascot-dock-hint">En una esquina no pasea ni abre consejos automáticamente.</small>
+                <p class="mascot-control-status">Nero está tranquilo.</p>
+                <label class="mascot-motion-option"><input type="checkbox" class="mascot-motion" @onchange="SetAnimation" /> Animar a Nero</label>
+                <label class="mascot-motion-option"><input type="checkbox" checked="@tipsEnabled" @onchange="SetTips" /> Consejos automáticos en modo libre</label>
+                <small class="mascot-motion-notice" hidden>Activa las animaciones para ver sus paseos y juegos.</small>
+                <details class="mascot-help"><summary>Cómo interactuar</summary><small class="mascot-instruction">En una esquina, Nero se anima sin desplazarse. Elige “Libre por la pantalla” para arrastrarlo o dejarlo explorar. Puedes pausar sus animaciones en este menú.</small></details>
+            </div>
+        </section>
+    }
+</aside>
+
+@code {
+    private ElementReference mascotRoot;
+    [Parameter] public bool AllowMenu { get; set; }
+    private QuickTip tip = Tips.Dashboard;
+    private bool showTip;
+    private bool tipsEnabled = true;
+    private string dockCorner = "bottom-right";
+    private bool menuOpen;
+    private bool profilePending;
+    private bool layoutPending;
+    private string profile = "dashboard";
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        UpdateTip();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        try
+        {
+            if (firstRender)
+            {
+                tipsEnabled = await JS.InvokeAsync<bool>("netwatchMascot.getTipsEnabled");
+                dockCorner = await JS.InvokeAsync<string>("netwatchMascot.getDockPreference");
+                showTip = tipsEnabled && dockCorner == "free";
+            }
+            if (firstRender || profilePending)
+            {
+                profilePending = false;
+                await JS.InvokeVoidAsync("netwatchMascot.attach", mascotRoot, profile);
+            }
+            else if (layoutPending) await JS.InvokeVoidAsync("netwatchMascot.layout", mascotRoot);
+            layoutPending = false;
+            if (firstRender) { layoutPending = true; await InvokeAsync(StateHasChanged); }
+        }
+        catch (JSDisconnectedException) { }
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        UpdateTip();
+        showTip = tipsEnabled && dockCorner == "free";
+        menuOpen = false;
+        profilePending = true;
+        layoutPending = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateTip()
+    {
+        var path = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+        (tip, profile) = path switch
+        {
+            "login" => (Tips.Login, "login"),
+            "" => (Tips.Dashboard, "dashboard"),
+            "devices" => (Tips.Devices, "devices"),
+            "devices/new" => (Tips.DeviceForm, "device-form"),
+            var value when value.StartsWith("devices/", StringComparison.OrdinalIgnoreCase) && value.EndsWith("/edit", StringComparison.OrdinalIgnoreCase) => (Tips.DeviceForm, "device-form"),
+            var value when value.StartsWith("devices/", StringComparison.OrdinalIgnoreCase) => (Tips.DeviceDetail, "device-detail"),
+            "events-alerts" => (Tips.Events, "events"),
+            "reports" => (Tips.Reports, "reports"),
+            "users" => (Tips.Users, "users"),
+            _ => (Tips.Default, "default")
+        };
+    }
+
+    private void ToggleMenu() { if (!AllowMenu) return; menuOpen = !menuOpen; showTip = false; layoutPending = true; }
+    private void CloseMenu() { menuOpen = false; layoutPending = true; }
+    private void OnMenuKeyDown(KeyboardEventArgs args) { if (args.Key == "Escape") CloseMenu(); }
+    private void ShowTip() { showTip = true; menuOpen = false; layoutPending = true; }
+    private async Task Command(string command)
+    {
+        if (!AllowMenu) return;
+        await JS.InvokeVoidAsync("netwatchMascot.command", mascotRoot, command);
+        menuOpen = false;
+        layoutPending = true;
+    }
+    private async Task SetAnimation(ChangeEventArgs args) => await JS.InvokeVoidAsync("netwatchMascot.setAnimation", mascotRoot, args.Value is true);
+    private async Task SetTips(ChangeEventArgs args)
+    {
+        tipsEnabled = args.Value is true;
+        showTip = false;
+        await JS.InvokeVoidAsync("netwatchMascot.setTipsEnabled", tipsEnabled);
+        layoutPending = true;
+    }
+    private Task DisableTips() => SetTips(new ChangeEventArgs { Value = false });
+    private async Task SetDock(ChangeEventArgs args)
+    {
+        dockCorner = args.Value?.ToString() ?? "bottom-right";
+        showTip = false;
+        await JS.InvokeVoidAsync("netwatchMascot.setDock", mascotRoot, dockCorner);
+        layoutPending = true;
+    }
+    private void CloseTip() { showTip = false; layoutPending = true; }
+
+    public async ValueTask DisposeAsync()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+        try { await JS.InvokeVoidAsync("netwatchMascot.detach", mascotRoot); }
+        catch (JSDisconnectedException) { }
+    }
+
+    private sealed record QuickTip(string Title, string Message);
+
+    private static class Tips
+    {
+        public static readonly QuickTip Login = new("Bienvenido a NetWatch", "Soy Nero. Inicia sesión para ver mi menú y acompañarte por el laboratorio.");
+        public static readonly QuickTip Dashboard = new("Estado del laboratorio", "El panel comprueba los equipos automáticamente. Usa “Comprobar ahora” si necesitas confirmar el estado en este momento.");
+        public static readonly QuickTip Devices = new("Inventario de dispositivos", "Selecciona un equipo para ver sus métricas e historial. Los administradores también pueden registrar, editar o desactivar dispositivos.");
+        public static readonly QuickTip DeviceDetail = new("Detalle del equipo", "Aquí puedes revisar conectividad, métricas e historial. “Ejecutar ping” realiza una comprobación individual inmediata.");
+        public static readonly QuickTip DeviceForm = new("Registro del equipo", "Completa primero los campos obligatorios. La ayuda del formulario y los iconos “?” explican los datos de red.");
+        public static readonly QuickTip Events = new("Eventos y alertas", "Usa los filtros para encontrar incidentes. Marca una alerta como atendida después de resolver o documentar la causa.");
+        public static readonly QuickTip Reports = new("Reportes", "Aplica los filtros antes de exportar. Puedes reunir todos los datos y abrir una vista previa del PDF antes de imprimir.");
+        public static readonly QuickTip Users = new("Usuarios", "Crea cuentas con el rol adecuado. Al editar, deja vacía la nueva contraseña si deseas conservar la actual.");
+        public static readonly QuickTip Default = new("Ayuda de NetWatch", "Selecciona una sección del menú para comenzar. En mi rueda, Guía rápida vuelve a mostrar el consejo de esta pantalla.");
+    }
+}

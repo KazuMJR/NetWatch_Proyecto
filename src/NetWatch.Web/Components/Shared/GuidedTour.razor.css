@@ -5,7 +5,11 @@
 .guide-capture{position:fixed;inset:0;z-index:80;background:transparent}
 .guide-spotlight{position:fixed;z-index:81;pointer-events:none;border:3px solid #6ee7f2;border-radius:16px;box-shadow:0 0 0 9999px rgba(4,17,31,.72),0 0 0 7px rgba(37,99,235,.22),0 16px 45px rgba(4,17,31,.22);transition:top .24s ease,left .24s ease,width .24s ease,height .24s ease}
 .guide-dialog{position:fixed;z-index:82;width:min(410px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;visibility:hidden;border:1px solid #d9e2ec;border-radius:20px;background:#fff;box-shadow:0 30px 90px rgba(3,18,34,.38);transition:top .22s ease,left .22s ease}
-.guide-header{display:flex;align-items:flex-start;justify-content:space-between;padding:21px 22px 16px;border-bottom:1px solid #e8edf3;background:linear-gradient(135deg,#f8fbff,#f4fbfa)}
+.guide-header{display:flex;align-items:center;gap:12px;padding:17px 18px 14px;border-bottom:1px solid #e8edf3;background:linear-gradient(135deg,#f8fbff,#f4fbfa)}
+.guide-header>div{min-width:0}.guide-header .guide-close{margin-left:auto;flex:0 0 auto}
+.guide-nero{position:fixed;z-index:83;visibility:hidden;width:88px;height:98px;display:flex;flex-direction:column;align-items:center;pointer-events:none;filter:drop-shadow(0 4px 5px #06132455);transition:left .3s ease,top .3s ease}
+.guide-nero span{padding:3px 9px;border:1px solid #99e3dc;border-radius:12px;background:#ecfffb;color:#176859;font-size:.65rem;font-weight:750;white-space:nowrap}
+@media(prefers-reduced-motion:reduce){.guide-nero{transition:none}}
 .guide-kicker{display:block;color:#2563eb;font-size:.59rem;font-weight:850;letter-spacing:.13em;margin-bottom:5px}.guide-header h2{font-size:1.15rem;margin:0}
 .guide-close{width:34px;height:34px;display:grid;place-items:center;border:1px solid #d9e2ec;border-radius:10px;background:#fff;color:#53657a}.guide-close:hover{color:#a62d38;background:#fff3f4;border-color:#f0c6cb}
 .guide-progress{display:flex;gap:7px;padding:14px 22px 0}.guide-progress-dot{height:5px;flex:1;border:0;border-radius:99px;background:#dfe6ee;padding:0}.guide-progress-dot.active{background:#2563eb}.guide-progress-dot.complete{background:#24a18d}

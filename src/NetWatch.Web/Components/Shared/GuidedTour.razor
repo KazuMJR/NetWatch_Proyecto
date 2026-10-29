@@ -3,15 +3,22 @@
 @inject IJSRuntime JS
 @implements IAsyncDisposable
 
-<button type="button" class="guide-launch" @onclick="Open" aria-haspopup="dialog" aria-expanded="@isOpen" title="Abrir guía interactiva">
-    <span class="guide-launch-icon"><AppIcon Name="help" Size="18" /></span>
-    <span><strong>Guía interactiva</strong><small>Recorrido por el sistema</small></span>
-</button>
+@if (isDashboard)
+{
+    <button type="button" class="guide-launch" @onclick="Open" aria-haspopup="dialog" aria-expanded="@isOpen" title="Abrir guía interactiva">
+        <span class="guide-launch-icon"><AppIcon Name="help" Size="18" /></span>
+        <span><strong>Guía interactiva</strong><small>Recorrido por el sistema</small></span>
+    </button>
+}
 
 @if (isOpen && steps.Count > 0)
 {
     <div class="guide-capture" @onclick="Close"></div>
     <div id="netwatch-guide-spotlight" class="guide-spotlight" aria-hidden="true"></div>
+    <div id="netwatch-guide-nero" class="guide-nero" aria-hidden="true">
+        <PixelCat Mood="@GuideMood" />
+        <span>Mira aquí</span>
+    </div>
     <section id="netwatch-guide-card" class="guide-dialog" role="dialog" aria-modal="true" aria-labelledby="guide-title">
         <header class="guide-header">
             <div>
@@ -46,7 +53,7 @@
             }
             else
             {
-                <button type="button" class="btn btn-primary" @onclick="Close"><AppIcon Name="check" Size="16" /> Finalizar recorrido</button>
+                <button type="button" class="btn btn-primary" @onclick="Finish"><AppIcon Name="check" Size="16" /> Finalizar y volver al panel</button>
             }
         </footer>
     </section>
@@ -56,22 +63,29 @@
     private readonly List<GuideStep> steps = [];
     private bool isOpen;
     private bool highlightPending;
+    private bool isDashboard;
     private int currentStep;
     private GuideStep Current => steps[Math.Clamp(currentStep, 0, steps.Count - 1)];
+    private string GuideMood => currentStep == steps.Count - 1 ? "celebrate"
+        : new[] { "curious", "stretch", "groom", "alert", "play", "sit", "celebrate" }[currentStep % 7];
 
     protected override async Task OnInitializedAsync()
     {
+        Navigation.LocationChanged += OnLocationChanged;
+        UpdateCurrentPage();
         var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
         steps.AddRange([
             new("dashboard", "Menú principal", "Navegación", "Este panel reúne los accesos a todas las áreas de NetWatch.", "Seleccione una opción para cambiar de pantalla. Durante esta guía, Siguiente lo llevará automáticamente a cada sección.", "[data-guide='navigation']", null),
-            new("dashboard", "Resumen del sistema", "Panel principal", "Estas tarjetas muestran de inmediato cuántos equipos están activos, en advertencia, desconectados o inactivos.", "Use Actualizar datos cuando necesite una lectura inmediata y seleccione un dispositivo para consultar su detalle.", "[data-guide='dashboard-summary']", "/"),
+            new("dashboard", "Resumen del sistema", "Panel principal", "Estas tarjetas muestran de inmediato cuántos equipos están activos, en advertencia, desconectados o inactivos.", "Use Comprobar ahora cuando necesite una lectura inmediata y seleccione un dispositivo para consultar su detalle.", "[data-guide='dashboard-summary']", "/"),
             new("devices", "Inventario monitoreado", "Dispositivos", "Aquí se concentra la configuración, disponibilidad y acceso al detalle de cada equipo.", "Abra Ver detalle para consultar métricas e historial. Un administrador también puede registrar, editar o desactivar equipos.", "[data-guide='device-inventory']", "/devices"),
             new("alerts", "Seguimiento de incidentes", "Eventos y alertas", "Los filtros ayudan a localizar incidentes por dispositivo y estado sin revisar toda la bitácora.", "Aplique los filtros y marque una alerta como atendida solamente después de resolver o documentar el incidente.", "[data-guide='event-filters']", "/events-alerts"),
             new("reports", "Filtros del reporte", "Reportes", "Defina el tipo de información, el equipo y el periodo que desea analizar.", "Seleccione Todos los datos para combinar métricas, eventos, alertas y cambios de estado; después pulse Aplicar filtros.", "[data-guide='report-filters']", "/reports"),
+            new("reports", "Estadísticas visuales", "Reportes", "El gráfico circular resume las categorías y las líneas muestran la evolución del consumo y los registros.", "Pulse CPU, RAM o Disco para alternar sus series. Abra la tabla de valores para consultar las cifras exactas del periodo filtrado.", "[data-guide='report-statistics']", "/reports"),
             new("pdf", "Exportación y vista previa", "Reportes", "Los botones de exportación usan exactamente los filtros que ya fueron aplicados.", "Excel descarga un libro editable. Vista previa PDF abre el documento vertical en otra pestaña para revisarlo, imprimirlo o descargarlo después.", "[data-guide='report-export']", "/reports")
         ]);
         if (user.IsInRole("Administrator"))
             steps.Add(new("users", "Administración de cuentas", "Usuarios", "Esta tabla presenta las cuentas autorizadas, su rol y su estado de acceso.", "Use Nuevo usuario para registrar una cuenta; Editar cuenta permite cambiar datos, rol o contraseña y Desactivar conserva su historial.", "[data-guide='user-list']", "/users"));
+        steps.Add(new("dashboard", "Recorrido completado", "Panel principal", "Ya conoce las áreas esenciales de NetWatch. El panel vuelve a mostrar el estado general del laboratorio.", "La información se comprueba automáticamente. También puede usar Comprobar ahora para solicitar una verificación inmediata de todos los equipos.", "[data-guide='dashboard-summary']", "/"));
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -80,9 +94,9 @@
         highlightPending = false;
         try
         {
-            var found = await JS.InvokeAsync<bool>("netwatchGuide.show", Current.Selector);
+            var found = await JS.InvokeAsync<bool>("netwatchGuide.show", Current.Selector, currentStep);
             if (!found)
-                await JS.InvokeVoidAsync("netwatchGuide.show", "[data-guide='page-content']");
+                await JS.InvokeVoidAsync("netwatchGuide.show", "[data-guide='page-content']", currentStep);
         }
         catch (JSDisconnectedException) { }
     }
@@ -124,8 +138,27 @@
 
     public async ValueTask DisposeAsync()
     {
+        Navigation.LocationChanged -= OnLocationChanged;
         try { await JS.InvokeVoidAsync("netwatchGuide.clear"); }
         catch (JSDisconnectedException) { }
+    }
+
+    private async Task Finish()
+    {
+        await Close();
+        if (!MatchesCurrentPage("/")) Navigation.NavigateTo("/");
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs args)
+    {
+        UpdateCurrentPage();
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private void UpdateCurrentPage()
+    {
+        var relative = Navigation.ToBaseRelativePath(Navigation.Uri).Split('?', '#')[0].Trim('/');
+        isDashboard = string.IsNullOrWhiteSpace(relative);
     }
 
     private sealed record GuideStep(string Icon, string Title, string Area, string Description, string Instruction, string Selector, string? Path);

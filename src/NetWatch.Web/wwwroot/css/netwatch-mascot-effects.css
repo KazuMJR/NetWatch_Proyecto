@@ -1,0 +1,2 @@
+/* The visual cursor game lasts at most 6.5 seconds and ends on movement or Escape. */
+html.nero-cursor-caught, html.nero-cursor-caught * { cursor:none!important; }

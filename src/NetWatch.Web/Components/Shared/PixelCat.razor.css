@@ -1,0 +1,65 @@
+.pixel-cat { width:72px; height:72px; display:block; }
+.size-small { width:54px; height:54px; }
+.cat-canvas { display:block; width:100%; height:100%; overflow:visible; image-rendering:pixelated; }
+.fur { fill:#12161c; } .shade { fill:#30383f; } .white { fill:#fffcf1; }
+.white-shade { fill:#ccd5d4; } .pink { fill:#e98b9d; } .eye { fill:#c0e46d; }
+.collar { fill:#df5363; } .tag { fill:#f5c862; }
+.cat-shadow { fill:#26384b; opacity:.13; }
+.anger-mark, .angry-brows { display:none; fill:#e15c6e; }
+.is-annoyed .anger-mark, .is-annoyed .angry-brows { display:inline; }
+.is-annoyed .eye { fill:#f6bd69; }
+.pose { display:none; }
+.pose-sit { display:inline; animation:sit-breathe 2.8s step-end infinite; }
+.cat-eyes { transform-box:fill-box; transform-origin:center; animation:cat-blink 6s step-end infinite; }
+.cat-tail { animation:tail-swish 3.6s step-end infinite; }
+.groom-paw, .tongue { display:none; }
+.mood-walk .pose-sit, .mood-run .pose-sit, .mood-nap .pose-sit,
+.mood-play .pose-sit, .mood-stretch .pose-sit, .mood-drag .pose-sit { display:none; }
+.mood-walk .pose-walk, .mood-run .pose-walk, .mood-nap .pose-nap,
+.mood-play .pose-play, .mood-stretch .pose-stretch, .mood-drag .pose-drag { display:inline; }
+.mood-curious .cat-head { animation:look-around 3s step-end infinite; }
+.mood-idle .cat-tail, .mood-sit .cat-tail { animation-duration:2.4s; }
+.mood-groom .groom-paw, .mood-scratch .groom-paw { display:inline; animation:wash-paw 1.4s step-end infinite; }
+.mood-groom .cat-head, .mood-scratch .cat-head { animation:wash-head 1.4s step-end infinite; }
+.mood-groom .tongue { display:inline; animation:lick 1.4s step-end infinite; }
+.mood-groom .cat-eyes { transform:scaleY(.35); animation:none; }
+.walk-body { animation:walk-bob .8s step-end infinite; }
+.legs-near { animation:walk-near .8s step-end infinite; }
+.legs-far { animation:walk-far .8s step-end infinite; }
+.mood-run .walk-body, .mood-run .legs-near, .mood-run .legs-far { animation-duration:.6s; }
+.mood-walk .cat-tail, .mood-run .cat-tail { animation-duration:1.6s; }
+.sleep-body { animation:sleep-breathe 4s step-end infinite; }
+.sleep-z { fill:#728ca9; animation:sleep-z 3s step-end infinite; }
+.z-two { animation-delay:1.5s; }
+.play-paw { animation:bat-paw 1.6s step-end infinite; }
+.yarn { animation:roll-yarn 1.6s step-end infinite; }
+.pose-play .cat-head { animation:watch-yarn 1.6s step-end infinite; }
+.is-batting .play-paw { animation-duration:.46s; }
+.is-batting .pose-play .cat-head { animation-duration:.46s; }
+.is-batting .yarn { display:none; }
+.pose-stretch { animation:stretch-back 3.2s step-end infinite; }
+.dangling { animation:dangle 1.2s step-end infinite; }
+.mood-celebrate .pose-sit { animation:happy-hop 1.6s step-end infinite; }
+.mood-alert .cat-head { animation:ear-perk 2s step-end infinite; }
+@keyframes cat-blink { 0%,44%,49%,100% { transform:scaleY(1); } 45%,48% { transform:scaleY(.2); } }
+@keyframes sit-breathe { 0%,100% { transform:translateY(0); } 40%,60% { transform:translateY(-1px); } }
+@keyframes tail-swish { 0%,100% { transform:translateX(0); } 20%,80% { transform:translateX(1px); } 40%,60% { transform:translateX(3px); } }
+@keyframes look-around { 0%,65%,100% { transform:translate(0,0); } 25%,50% { transform:translate(1px,-1px); } }
+@keyframes wash-paw { 0%,75%,100% { transform:translate(0,-1px); } 25%,50% { transform:translate(-1px,-4px); } }
+@keyframes wash-head { 0%,75%,100% { transform:translate(0,0); } 25%,50% { transform:translate(1px,1px); } }
+@keyframes lick { 0%,75%,100% { opacity:0; } 25%,50% { opacity:1; } }
+@keyframes walk-bob { 0%,50%,100% { transform:translateY(0); } 25%,75% { transform:translateY(-1px); } }
+@keyframes walk-near { 0%,100% { transform:translate(2px,0); } 25% { transform:translate(0,0); } 50% { transform:translate(-2px,-1px); } 75% { transform:translate(0,-1px); } }
+@keyframes walk-far { 0%,100% { transform:translate(-2px,-1px); } 25% { transform:translate(0,-1px); } 50% { transform:translate(2px,0); } 75% { transform:translate(0,0); } }
+@keyframes sleep-breathe { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-1px); } }
+@keyframes sleep-z { 0%,100% { opacity:0; transform:translateY(0); } 30% { opacity:1; transform:translateY(-1px); } 60% { opacity:.6; transform:translateY(-3px); } }
+@keyframes bat-paw { 0%,60%,100% { transform:translateX(0); } 20%,40% { transform:translateX(2px); } }
+@keyframes roll-yarn { 0%,100% { transform:translateX(-2px); } 20% { transform:translateX(0); } 40%,60% { transform:translateX(1px); } 80% { transform:translateX(-1px); } }
+@keyframes watch-yarn { 0%,60%,100% { transform:translateY(0); } 20%,40% { transform:translateY(1px); } }
+@keyframes stretch-back { 0%,100% { transform:translateY(0); } 35%,65% { transform:translateY(-1px); } }
+@keyframes dangle { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-1px); } 75% { transform:translateX(1px); } }
+@keyframes happy-hop { 0%,60%,100% { transform:translateY(0); } 15%,45% { transform:translateY(-1px); } 30% { transform:translateY(-3px); } }
+@keyframes ear-perk { 0%,60%,100% { transform:translateY(0); } 20%,40% { transform:translateY(-1px); } }
+.pixel-cat.motion-disabled * { animation:none!important; }
+.pixel-cat.motion-disabled .sleep-z { opacity:.65; }
+@media (prefers-reduced-motion:reduce) { .pixel-cat:not(.motion-enabled) * { animation:none!important; } .sleep-z { opacity:.65; } }

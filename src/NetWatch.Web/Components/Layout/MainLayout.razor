@@ -23,6 +23,10 @@
         <article class="content" data-guide="page-content">@Body</article>
     </main>
 </div>
+<AuthorizeView>
+    <Authorized><MascotGuide AllowMenu="true" /></Authorized>
+    <NotAuthorized><MascotGuide /></NotAuthorized>
+</AuthorizeView>
 <div id="blazor-error-ui">Ocurrió un error inesperado. <a href="" class="reload">Recargar</a><a class="dismiss">×</a></div>
 
 @code {

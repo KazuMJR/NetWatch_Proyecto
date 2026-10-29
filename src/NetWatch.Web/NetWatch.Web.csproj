@@ -6,4 +6,5 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <ItemGroup><ProjectReference Include="..\NetWatch.Reporting\NetWatch.Reporting.csproj" /></ItemGroup>
 </Project>

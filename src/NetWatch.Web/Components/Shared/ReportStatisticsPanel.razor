@@ -1,0 +1,142 @@
+@using NetWatch.Reporting
+@using System.Globalization
+
+<section class="panel report-statistics" data-guide="report-statistics" aria-labelledby="statistics-title">
+    <div class="panel-header"><div><span class="page-eyebrow">Análisis visual</span><h2 id="statistics-title">Estadísticas del periodo</h2><p class="panel-subtitle">Todos los registros del filtro aplicado, resumidos de un vistazo.</p></div><span class="panel-count">@Summary.Devices equipos con datos</span></div>
+    @if (Summary.Records == 0)
+    {
+        <div class="empty">No hay datos para calcular estadísticas. Pruebe otras fechas o dispositivos.</div>
+    }
+    else
+    {
+        <div class="statistics-kpis">
+            @foreach (var metric in Summary.Metrics)
+            {
+                <div class="statistics-kpi"><span>@metric.Label promedio</span><strong>@Value(metric.Average, metric.Unit)</strong><small>Máximo @Value(metric.Maximum, metric.Unit) · @metric.Samples.ToString("N0") muestras</small></div>
+            }
+        </div>
+        <div class="statistics-charts">
+            <section class="statistics-chart statistics-composition" aria-label="Distribución por categoría">
+                <h3>Composición del reporte</h3><p>Cómo se distribuye la información consultada.</p>
+                <div class="statistics-donut-wrap">
+                    <svg class="statistics-donut" viewBox="0 0 220 220" role="img" aria-label="Distribución de registros por categoría; valores en la leyenda">
+                        <circle cx="110" cy="110" r="78" fill="none" stroke="#edf2f8" stroke-width="32" />
+                        @for (var i = 0; i < Summary.Categories.Count; i++)
+                        {
+                            var item = Summary.Categories[i];
+                            if (item.Count > 0)
+                            {
+                                <circle cx="110" cy="110" r="78" fill="none" stroke="@CategoryColor(i)" stroke-width="32" pathLength="100" stroke-dasharray="@($"{N(item.Share)} {N(100-item.Share)}")" stroke-dashoffset="@N(-Summary.Categories.Take(i).Sum(x => x.Share))" transform="rotate(-90 110 110)" tabindex="0" aria-label="@($"{item.Label}: {item.Count} registros, {item.Share:0.#}%")"><title>@item.Label: @item.Count (@item.Share.ToString("0.#")%)</title></circle>
+                            }
+                        }
+                        <text x="110" y="108" text-anchor="middle" class="donut-total">@Summary.Records.ToString("N0")</text>
+                        <text x="110" y="130" text-anchor="middle" class="donut-caption">registros</text>
+                    </svg>
+                    <ul class="statistics-legend">
+                        @for (var i=0; i<Summary.Categories.Count; i++)
+                        {
+                            var item=Summary.Categories[i];
+                            <li><span class="statistics-dot" style="background:@CategoryColor(i)"></span><span>@item.Label</span><strong>@item.Count.ToString("N0")<small>@item.Share.ToString("0.#") %</small></strong></li>
+                        }
+                    </ul>
+                </div>
+            </section>
+            <section class="statistics-chart" aria-label="Evolución del consumo de recursos">
+                <h3>Evolución del consumo</h3><p>Promedio de CPU, RAM y disco por intervalo UTC.</p>
+                <div class="statistics-series" aria-label="Series del gráfico">
+                    @for (var i=0; i<3; i++)
+                    {
+                        var index=i;
+                        <button type="button" class="@(!hiddenSeries.Contains(i) ? "selected" : "")" aria-pressed="@(!hiddenSeries.Contains(i))" @onclick="() => Toggle(index)"><span class="statistics-dot" style="background:@SeriesColor(i)"></span>@SeriesLabel(i)</button>
+                    }
+                </div>
+                @if (Summary.Periods.All(p => p.CpuAverage is null && p.MemoryAverage is null && p.DiskAverage is null))
+                {
+                    <div class="statistics-chart-empty">Este filtro no contiene métricas de rendimiento.</div>
+                }
+                else
+                {
+                    <svg class="statistics-line" viewBox="0 0 520 240" role="img" aria-label="Evolución del consumo, escala de cero a cien por ciento. Valores disponibles en la tabla inferior.">
+                        @foreach (var tick in new[] { 0, 25, 50, 75, 100 })
+                        {
+                            <g><line x1="40" y1="@N(Y(tick,100))" x2="500" y2="@N(Y(tick,100))" class="chart-grid"/><text x="32" y="@N(Y(tick,100)+4)" text-anchor="end">@tick%</text></g>
+                        }
+                        @for (var series=0; series<3; series++)
+                        {
+                            var s=series;
+                            if (!hiddenSeries.Contains(s))
+                            {
+                                <path d="@LinePath(p => Resource(p,s),100)" fill="none" stroke="@SeriesColor(s)" stroke-width="2.5" stroke-linejoin="round" />
+                                @for (var i=0; i<Summary.Periods.Count; i++)
+                                {
+                                    var p=Summary.Periods[i]; var value=Resource(p,s);
+                                    if (value.HasValue) { <circle cx="@N(X(i))" cy="@N(Y(value.Value,100))" r="4" fill="@SeriesColor(s)" tabindex="0" aria-label="@($"{PeriodLabel(p)}, {SeriesLabel(s)}: {value:0.##}%")"><title>@PeriodLabel(p) · @SeriesLabel(s): @Value(value,"%")</title></circle> }
+                                }
+                            }
+                        }
+                        @foreach (var i in TickIndexes()) { <g><text x="@N(X(i))" y="224" text-anchor="middle">@Summary.Periods[i].FromUtc.ToString("dd/MM")</text></g> }
+                    </svg>
+                }
+                <small class="statistics-note">Pulse una leyenda para mostrar u ocultar la serie. Los tramos sin mediciones quedan vacíos.</small>
+            </section>
+            <section class="statistics-chart" aria-label="Actividad registrada por intervalo UTC">
+                <h3>Actividad registrada</h3><p>Volumen de registros a lo largo del periodo con datos.</p>
+                <svg class="statistics-line" viewBox="0 0 520 240" role="img" aria-label="Evolución del número de registros por intervalo UTC. Valores disponibles en la tabla inferior.">
+                    @foreach (var tick in CountTicks())
+                    {
+                        <g><line x1="40" y1="@N(Y(tick,CountMax))" x2="500" y2="@N(Y(tick,CountMax))" class="chart-grid"/><text x="32" y="@N(Y(tick,CountMax)+4)" text-anchor="end">@tick</text></g>
+                    }
+                    <path d="@AreaPath()" fill="#dbeafe" />
+                    <path d="@LinePath(p => p.Count,CountMax)" fill="none" stroke="#2563eb" stroke-width="3" stroke-linejoin="round" />
+                    @for (var i=0; i<Summary.Periods.Count; i++)
+                    {
+                        var p=Summary.Periods[i];
+                        <circle cx="@N(X(i))" cy="@N(Y(p.Count,CountMax))" r="4" fill="#2563eb" tabindex="0" aria-label="@($"{PeriodLabel(p)}: {p.Count} registros")"><title>@PeriodLabel(p): @p.Count registros</title></circle>
+                    }
+                    @foreach (var i in TickIndexes()) { <g><text x="@N(X(i))" y="224" text-anchor="middle">@Summary.Periods[i].FromUtc.ToString("dd/MM")</text></g> }
+                </svg>
+                <small class="statistics-note">Cada punto agrupa hasta @BucketDays día(s). Los intervalos sin registros tienen valor cero.</small>
+            </section>
+            <section class="statistics-chart" aria-label="Registros por dispositivo">
+                <h3>Registros por dispositivo</h3><p>Seis equipos principales; el resto se agrupa en Otros.</p>
+                @foreach (var item in Summary.ByDevice)
+                {
+                    <div class="statistics-bar-row"><div><span>@item.Label</span><strong>@item.Count.ToString("N0") <small>@item.Share.ToString("0.#") %</small></strong></div><div class="statistics-track" aria-hidden="true"><span style="width:@N(item.Share)%"></span></div></div>
+                }
+            </section>
+        </div>
+        <details class="statistics-data"><summary>Consultar valores de los gráficos por fecha</summary><div class="table-responsive"><table class="table"><thead><tr><th>Intervalo UTC</th><th>Registros</th><th>CPU promedio</th><th>RAM promedio</th><th>Disco promedio</th></tr></thead><tbody>@foreach(var p in Summary.Periods){<tr><td>@PeriodLabel(p)</td><td>@p.Count</td><td>@Value(p.CpuAverage,"%")</td><td>@Value(p.MemoryAverage,"%")</td><td>@Value(p.DiskAverage,"%")</td></tr>}</tbody></table></div></details>
+        <p class="statistics-footnote">Promedios por muestra: excluyen valores ausentes e incluyen ceros registrados. Estos gráficos describen el historial; no representan disponibilidad ni el estado actual. PDF y Excel incluyen el resumen y todos los registros.</p>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ReportStatistics Summary { get; set; } = ReportStatistics.Build([]);
+    private readonly HashSet<int> hiddenSeries = [];
+    private void Toggle(int i) { if (!hiddenSeries.Add(i)) hiddenSeries.Remove(i); }
+    private static string N(decimal value) => value.ToString("0.###", CultureInfo.InvariantCulture);
+    private static string Value(decimal? value, string unit) => value.HasValue ? $"{value:0.##} {unit}" : "Sin datos";
+    private static string CategoryColor(int i) => new[] { "#2563eb", "#10a58b", "#ef9c24", "#8762d2" }[i % 4];
+    private static string SeriesColor(int i) => new[] { "#2563eb", "#10a58b", "#8762d2" }[i];
+    private static string SeriesLabel(int i) => new[] { "CPU", "RAM", "Disco" }[i];
+    private static decimal? Resource(PeriodStatistic p,int i) => i switch { 0 => p.CpuAverage, 1 => p.MemoryAverage, _ => p.DiskAverage };
+    private decimal X(int i) => Summary.Periods.Count <= 1 ? 270 : 40 + 460m * i / (Summary.Periods.Count-1);
+    private static decimal Y(decimal value,decimal max) => 195 - Math.Clamp(value / Math.Max(max,1),0,1)*175;
+    private decimal CountMax => Math.Max(1,Summary.Periods.Max(p => p.Count));
+    private IEnumerable<int> TickIndexes() => Enumerable.Range(0,Summary.Periods.Count).Where(i => i==0 || i==Summary.Periods.Count-1 || i%Math.Max(1,(int)Math.Ceiling(Summary.Periods.Count/5d))==0);
+    private IEnumerable<decimal> CountTicks() => new[] { 0m, Math.Ceiling(CountMax/2), CountMax }.Distinct();
+    private int BucketDays => (Summary.Periods[0].ToUtc-Summary.Periods[0].FromUtc).Days+1;
+    private string LinePath(Func<PeriodStatistic,decimal?> selector,decimal max)
+    {
+        var path=new System.Text.StringBuilder(); var connected=false;
+        for(var i=0;i<Summary.Periods.Count;i++)
+        {
+            var value=selector(Summary.Periods[i]);
+            if(!value.HasValue) { connected=false; continue; }
+            path.Append($"{(connected?"L":"M")}{N(X(i))} {N(Y(value.Value,max))} "); connected=true;
+        }
+        return path.ToString();
+    }
+    private string AreaPath() => Summary.Periods.Count<2 ? "" : $"M{N(X(0))} 195 {LinePath(p=>p.Count,CountMax).Replace('M','L')} L{N(X(Summary.Periods.Count-1))} 195 Z";
+    private static string PeriodLabel(PeriodStatistic p) => p.FromUtc==p.ToUtc ? p.FromUtc.ToString("dd/MM/yyyy") : $"{p.FromUtc:dd/MM/yyyy} – {p.ToUtc:dd/MM/yyyy}";
+}

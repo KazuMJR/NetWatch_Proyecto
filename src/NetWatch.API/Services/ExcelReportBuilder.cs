@@ -3,6 +3,7 @@ using System.IO.Compression;
 using System.Text;
 using System.Xml;
 using NetWatch.API.Contracts;
+using NetWatch.Reporting;
 
 namespace NetWatch.API.Services;
 
@@ -53,8 +54,9 @@ public static class ExcelReportBuilder
 
     private static void WriteSummarySheet(XmlWriter writer, IReadOnlyList<ReportRowDto> rows, IReadOnlyList<DataSheet> sheets, string deviceLabel, DateTime fromUtc, DateTime toUtc, DateTime generatedAtUtc)
     {
-        StartWorksheet(writer, "FF0B1F33", "A1:H13", false);
-        WriteColumns(writer, 18, 18, 18, 18, 18, 18, 20, 20);
+        var stats = ReportStatistics.Build(rows.Select(x => new ReportSample(x.Category, x.DeviceId, x.DeviceName, x.DateUtc, x.CpuPercent, x.MemoryPercent, x.DiskPercent, x.ResponseTimeMs)));
+        StartWorksheet(writer, "FF0B1F33", "A1:H52", false);
+        WriteColumns(writer, 25, 24, 18, 18, 18, 18, 20, 20);
         writer.WriteStartElement("sheetData", SpreadsheetNs);
 
         WriteRow(writer, 1, [new("Reporte de monitoreo NetWatch", CellKind.Text, 1)], 30);
@@ -105,10 +107,49 @@ public static class ExcelReportBuilder
             ], 21);
         }
 
+        WriteRow(writer, 14, [new("Estadísticas de rendimiento por muestra", CellKind.Text, 18)], 24);
+        WriteRow(writer, 15, new[] { "Indicador", "Promedio", "Máximo", "Muestras", "Unidad" }.Select(x => new ExcelCell(x, CellKind.Text, 3)).ToArray(), 24);
+        for (var index = 0; index < stats.Metrics.Count; index++)
+        {
+            var metric = stats.Metrics[index];
+            WriteRow(writer, 16 + index, [new(metric.Label), new(metric.Average, CellKind.Number), new(metric.Maximum, CellKind.Number), new(metric.Samples, CellKind.Integer), new(metric.Unit)], 22);
+        }
+        WriteRow(writer, 21, [new("Registros por dispositivo", CellKind.Text, 18)], 24);
+        WriteRow(writer, 22, [new("Dispositivo", CellKind.Text, 3), new("Registros", CellKind.Text, 3), new("Participación", CellKind.Text, 3)], 24);
+        for (var index = 0; index < stats.ByDevice.Count; index++)
+        {
+            var item = stats.ByDevice[index];
+            WriteRow(writer, 23 + index, [new(item.Label, CellKind.WrappedText), new(item.Count, CellKind.Integer), new(item.Share / 100, CellKind.Percentage)], 42);
+        }
+        WriteRow(writer, 31, [new("Actividad registrada por intervalo UTC", CellKind.Text, 18)], 24);
+        WriteRow(writer, 32, [new("Desde UTC", CellKind.Text, 3), new("Hasta UTC", CellKind.Text, 3), new("Registros", CellKind.Text, 3), new("CPU promedio (%)", CellKind.Text, 3), new("RAM promedio (%)", CellKind.Text, 3), new("Disco promedio (%)", CellKind.Text, 3)], 24);
+        for (var index = 0; index < stats.Periods.Count; index++)
+        {
+            var period = stats.Periods[index];
+            WriteRow(writer, 33 + index, [new(period.FromUtc, CellKind.Date), new(period.ToUtc, CellKind.Date), new(period.Count, CellKind.Integer), new(period.CpuAverage, CellKind.Number), new(period.MemoryAverage, CellKind.Number), new(period.DiskAverage, CellKind.Number)], 22);
+        }
+        WriteRow(writer, 47, [new("Promedios por muestra. Se excluyen valores ausentes; los ceros registrados sí se incluyen.", CellKind.Text, 2)], 22);
+        WriteRow(writer, 48, [new("Una celda vacía indica que no hay datos. Los conteos no equivalen a disponibilidad.", CellKind.Text, 2)], 22);
+        WriteRow(writer, 49, [new("Dispositivos: se muestran los seis principales y el resto se agrupa en Otros.", CellKind.Text, 2)], 22);
         writer.WriteEndElement();
-        WriteMergeCells(writer, "A1:H1", "A2:H2", "A4:B4", "C4:D4", "E4:F4", "G4:H4", "A5:B5", "C5:D5", "E5:F5", "G5:H5", "A7:H7");
+        WriteMergeCells(writer, "A1:H1", "A2:H2", "A4:B4", "C4:D4", "E4:F4", "G4:H4", "A5:B5", "C5:D5", "E5:F5", "G5:H5", "A7:H7", "A14:H14", "A21:H21", "A31:H31", "A47:H47", "A48:H48", "A49:H49");
+        WriteDataBar(writer, "B9:B12", "168D9A", 1);
+        WriteDataBar(writer, "B16:B18", "2563EB", 2, 100);
+        WriteDataBar(writer, "B23:B29", "178DAF", 3);
+        WriteDataBar(writer, "C33:C44", "168D9A", 4);
         WritePageSettings(writer);
         writer.WriteEndElement();
+    }
+
+    private static void WriteDataBar(XmlWriter writer, string range, string color, int priority, int? maximum = null)
+    {
+        writer.WriteStartElement("conditionalFormatting", SpreadsheetNs); writer.WriteAttributeString("sqref", range);
+        writer.WriteStartElement("cfRule", SpreadsheetNs); writer.WriteAttributeString("type", "dataBar"); writer.WriteAttributeString("priority", priority.ToString(CultureInfo.InvariantCulture));
+        writer.WriteStartElement("dataBar", SpreadsheetNs); writer.WriteAttributeString("showValue", "1");
+        writer.WriteStartElement("cfvo", SpreadsheetNs); writer.WriteAttributeString("type", "num"); writer.WriteAttributeString("val", "0"); writer.WriteEndElement();
+        writer.WriteStartElement("cfvo", SpreadsheetNs); writer.WriteAttributeString("type", maximum.HasValue ? "num" : "max"); if(maximum.HasValue) writer.WriteAttributeString("val", maximum.Value.ToString(CultureInfo.InvariantCulture)); writer.WriteEndElement();
+        writer.WriteStartElement("color", SpreadsheetNs); writer.WriteAttributeString("rgb", "FF" + color); writer.WriteEndElement();
+        writer.WriteEndElement(); writer.WriteEndElement(); writer.WriteEndElement();
     }
 
     private static void WriteDataSheet(XmlWriter writer, DataSheet sheet, string deviceLabel, DateTime fromUtc, DateTime toUtc)

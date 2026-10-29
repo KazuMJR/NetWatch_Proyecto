@@ -3,9 +3,11 @@ WORKDIR /source
 COPY global.json Directory.Build.props NuGet.Config ./
 COPY src/NetWatch.Data/NetWatch.Data.csproj src/NetWatch.Data/
 COPY src/NetWatch.API/NetWatch.API.csproj src/NetWatch.API/
+COPY src/NetWatch.Reporting/NetWatch.Reporting.csproj src/NetWatch.Reporting/
 RUN dotnet restore src/NetWatch.API/NetWatch.API.csproj
 COPY src/NetWatch.Data src/NetWatch.Data
 COPY src/NetWatch.API src/NetWatch.API
+COPY src/NetWatch.Reporting src/NetWatch.Reporting
 RUN dotnet publish src/NetWatch.API/NetWatch.API.csproj -c Release --no-restore -o /app
 
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime

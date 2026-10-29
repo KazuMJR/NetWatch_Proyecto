@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject NetWatchApiClient Api
 @inject IJSRuntime JS
+@using NetWatch.Reporting
 
 <PageTitle>Reportes | NetWatch</PageTitle>
 
@@ -99,6 +100,11 @@
     </div>
 </div>
 
+@if (!isLoading)
+{
+    <ReportStatisticsPanel Summary="statistics" />
+}
+
 <section class="panel report-results-panel">
     <div class="panel-header report-results-header">
         <div class="panel-title">
@@ -187,6 +193,7 @@
 @code {
     private IReadOnlyList<DeviceDto> devices = [];
     private IReadOnlyList<ReportRowDto> rows = [];
+    private ReportStatistics statistics = ReportStatistics.Build([]);
     private string type = "metrics";
     private string deviceId = "";
     private DateTime? from = DateTime.UtcNow.Date.AddDays(-7);
@@ -246,12 +253,17 @@
             isLoading = true;
             error = null;
             notice = null;
-            var result = await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports", type, deviceId, from.Value, to.Value));
+            var requestedType = type;
+            var requestedDeviceId = deviceId;
+            var requestedFrom = from.Value.Date;
+            var requestedTo = to.Value.Date;
+            var result = await Api.GetAsync<IReadOnlyList<ReportRowDto>>(Query("api/reports", requestedType, requestedDeviceId, requestedFrom, requestedTo));
             rows = result;
-            appliedType = type;
-            appliedDeviceId = deviceId;
-            appliedFrom = from.Value.Date;
-            appliedTo = to.Value.Date;
+            statistics = ReportStatistics.Build(rows.Select(x => new ReportSample(x.Category, x.DeviceId, x.DeviceName, x.DateUtc, x.CpuPercent, x.MemoryPercent, x.DiskPercent, x.ResponseTimeMs)));
+            appliedType = requestedType;
+            appliedDeviceId = requestedDeviceId;
+            appliedFrom = requestedFrom;
+            appliedTo = requestedTo;
         }
         catch (Exception ex)
         {

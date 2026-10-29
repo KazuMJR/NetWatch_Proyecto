@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using NetWatch.API.Contracts;
+using NetWatch.Reporting;
 
 namespace NetWatch.API.Services;
 
@@ -22,6 +23,12 @@ public static class PdfReportBuilder
     {
         var metricLayout = string.Equals(type, "metrics", StringComparison.OrdinalIgnoreCase);
         var pages = new List<PdfCanvas>();
+        if (rows.Count > 0)
+        {
+            var summaryPage = NewPage(type, deviceLabel, fromUtc, toUtc, rows.Count);
+            DrawStatistics(summaryPage, ReportStatistics.Build(rows.Select(x => new ReportSample(x.Category, x.DeviceId, x.DeviceName, x.DateUtc, x.CpuPercent, x.MemoryPercent, x.DiskPercent, x.ResponseTimeMs))));
+            pages.Add(summaryPage);
+        }
         var page = NewPage(type, deviceLabel, fromUtc, toUtc, rows.Count);
         pages.Add(page);
         var top = DrawTableHeader(page, metricLayout);
@@ -55,6 +62,55 @@ public static class PdfReportBuilder
         }
 
         return SimplePdfWriter.Write(pages.Select(x => x.Content).ToList(), "Reporte NetWatch NMS", generatedAtUtc);
+    }
+
+    private static void DrawStatistics(PdfCanvas page, ReportStatistics stats)
+    {
+        page.Text(Left, 157, "Resumen estadístico del periodo", 15, true, "172234");
+        page.Text(Left, 179, $"{stats.Records:N0} registros  |  {stats.Devices} dispositivos con datos  |  Todos los resultados del filtro", 9, false, "52657B");
+        for (var i = 0; i < stats.Metrics.Count; i++)
+        {
+            var metric = stats.Metrics[i]; var x = Left + i * 137;
+            page.FillRect(x, 204, 129, 94, "F1F6FC");
+            page.Text(x + 10, 215, metric.Label + " promedio", 9, true, "325574");
+            page.Text(x + 10, 235, metric.Average.HasValue ? Value(metric.Average, " " + metric.Unit) : "Sin datos", 15, true, "1748BC");
+            page.Text(x + 10, 263, "Máximo " + (metric.Maximum.HasValue ? Value(metric.Maximum, " " + metric.Unit) : "sin datos"), 8, false, "405065");
+            page.Text(x + 10, 279, $"{metric.Samples:N0} muestras", 8, false, "405065");
+        }
+        page.Text(Left, 322, "Composición del reporte", 11, true, "172234");
+        page.Text(Left + 286, 322, "Consumo promedio de recursos", 11, true, "172234");
+        for (var i = 0; i < Math.Min(4, stats.Categories.Count); i++)
+        {
+            var item = stats.Categories[i]; var y = 349 + i * 34;
+            page.Text(Left, y, item.Label, 9, false, "405065");
+            page.Text(Left + 250, y, $"{item.Count:N0} ({item.Share:0.#}%)", 9, true, "172234", TextAlign.Right);
+            page.FillRect(Left, y + 15, 250, 6, "E9EFF6");
+            page.FillRect(Left, y + 15, 250 * (double)item.Share / 100, 6, i == 2 ? "C9485A" : "168D9A");
+        }
+        for (var i = 0; i < 3; i++)
+        {
+            var metric = stats.Metrics[i]; var y = 349 + i * 34;
+            page.Text(Left + 286, y, metric.Label, 9, false, "405065");
+            page.Text(Left + TableWidth, y, metric.Average.HasValue ? Percent(metric.Average) : "Sin datos", 9, true, "172234", TextAlign.Right);
+            page.FillRect(Left + 286, y + 15, 254, 6, "E9EFF6");
+            page.FillRect(Left + 286, y + 15, 254 * (double)Math.Clamp(metric.Average ?? 0, 0, 100) / 100, 6, "2563EB");
+        }
+        page.Text(Left + 286, 458, "Escala de recursos: 0 a 100 %", 8, false, "52657B");
+        page.Text(Left, 502, "Actividad registrada por intervalo UTC", 11, true, "172234");
+        var width = TableWidth / Math.Max(1, stats.Periods.Count);
+        var max = Math.Max(1, stats.Periods.Max(x => x.Count));
+        for (var i = 0; i < stats.Periods.Count; i++)
+        {
+            var point = stats.Periods[i]; var x = Left + i * width; var h = 88d * point.Count / max;
+            page.FillRect(x + 6, 625 - h, width - 12, h, "168D9A");
+            page.Text(x + width / 2, 610 - h, point.Count.ToString("N0"), 8, true, "172234", TextAlign.Center);
+            page.Text(x + width / 2, 634, point.FromUtc.ToString("dd/MM"), 7, false, "405065", TextAlign.Center);
+        }
+        var days = stats.Periods.Count == 0 ? 1 : (stats.Periods[0].ToUtc - stats.Periods[0].FromUtc).Days + 1;
+        page.Text(Left, 657, $"Cada barra agrupa hasta {days} día(s), desde la fecha indicada. Los intervalos vacíos valen cero.", 8, false, "52657B");
+        page.Text(Left, 682, "Promedios por muestra: excluyen valores ausentes e incluyen los ceros registrados.", 8.5, false, "405065");
+        page.Text(Left, 698, "Los conteos describen registros históricos; no equivalen al porcentaje de disponibilidad.", 8.5, false, "405065");
+        page.Text(Left, 719, "El detalle completo comienza en la página siguiente.", 9, true, "1748BC");
     }
 
     private static PdfCanvas NewPage(string type, string deviceLabel, DateTime fromUtc, DateTime toUtc, int count)

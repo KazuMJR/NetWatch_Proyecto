@@ -8,7 +8,15 @@ Desde la raíz:
 .\scripts\Test-NetWatch.ps1
 ```
 
-Criterio de aceptación: compilación sin errores y 14/14 pruebas aprobadas. Estas pruebas cubren las reglas centrales con una base aislada en memoria; no sustituyen la prueba integrada de MySQL, Docker, red e interfaz.
+Criterio de aceptación: compilación sin errores y todas las pruebas aprobadas. La revisión de octubre contiene 29 pruebas .NET y 24 JavaScript (ejecutar `node --test tests/NetWatch.Web.Tests/*.test.cjs`). Cubren reglas centrales, exportaciones, estadísticas, ciclo de vida del panel, mascota y guía; no sustituyen la prueba integrada de MySQL, Docker, red e interfaz.
+
+### Mejoras del catedrático
+
+1. Nero debe iniciar en una esquina y no abrir consejos ni desplazarse espontáneamente; cambiar la ubicación debe persistir al navegar.
+2. Volver de modo libre a una esquina debe detener el movimiento; pausar animaciones debe mantenerse al volver a entrar.
+3. Reportes debe mostrar distribución circular, evolución temporal de recursos y registros, promedios, máximos y comparación por equipo.
+4. Ausentes no deben convertirse en cero; los ceros válidos sí cuentan; las agrupaciones deben conservar todos los registros.
+5. Excel y PDF deben conservar resumen y detalle bajo los filtros aplicados. Una exportación posterior puede incluir registros nuevos recibidos entre consultas.
 
 ## 2. Preparación de la prueba integrada
 

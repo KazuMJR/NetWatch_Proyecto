@@ -25,10 +25,10 @@ try {
     }
     [xml]$result = Get-Content -LiteralPath $resultPath -Raw
     $counters = $result.TestRun.ResultSummary.Counters
-    if ([int]$counters.total -ne 14 -or [int]$counters.executed -ne 14 -or [int]$counters.passed -ne 14) {
-        throw "Resultado inválido en Docker: total=$($counters.total), ejecutadas=$($counters.executed), aprobadas=$($counters.passed). Se esperaban 14/14."
+    if ([int]$counters.total -lt 29 -or [int]$counters.executed -ne [int]$counters.total -or [int]$counters.passed -ne [int]$counters.total) {
+        throw "Resultado inválido en Docker: total=$($counters.total), ejecutadas=$($counters.executed), aprobadas=$($counters.passed). Deben ejecutarse y aprobarse todas las pruebas, con un mínimo de 29."
     }
-    Write-Host 'Verificación Docker completa: 14 de 14 pruebas aprobadas.' -ForegroundColor Green
+    Write-Host "Verificación Docker completa: $($counters.passed) de $($counters.total) pruebas aprobadas." -ForegroundColor Green
 }
 finally {
     Pop-Location
